@@ -54,10 +54,59 @@ All credentials and options are app settings (`settings/shippo.json`). Nothing i
 2. Install the app in Swell and open its settings. Enter the **API token** and the **Ship-from address**, adjust the **Default parcel**, and save.
 3. Run **Test connection** from the Actions menu. It should say "Connected to Shippo" and list your carriers.
 4. Go to **Settings → Shipping**. Turn on **Shippo** in the list and click **Save changes**. Checkout rates appear only after this step.
-5. *(Optional, recommended)* Set a **Webhook secret** in the app settings. Build the webhook URL from the pattern: replace `{store-id}` with your store ID, `{public-key}` with your Swell public key (Developer → API keys; test key for test, live key for live), and `{webhook-secret}` with the secret. In Shippo → **Settings → Advanced → Webhooks**, add the URL for `transaction_created`, `transaction_updated` and `track_updated`, then use Shippo's test button. It should return 200.
+5. *(Optional, recommended)* Set up the Shippo webhook as described in [Webhook setup](#webhook-setup).
 6. Add an item to a cart and enter a shipping address. Shippo rates should show at checkout.
 7. Place and pay a test order. It should appear on Shippo's **Orders** page, and its Shippo tab in Swell should say **Awaiting label**.
 8. Buy a label for it in Shippo. Within 15 minutes (right away with the webhook, or after **Check for labels now**), the order gets a shipment with the tracking number.
+
+## Webhook setup
+
+The webhook is optional. Without it, the app finds new labels with its check every 15 minutes, but voided labels and carrier tracking updates never reach Swell. With it, Shippo tells the app about each of these as it happens.
+
+**What it handles**
+
+| Shippo event | What the app does |
+|---|---|
+| `transaction_created` | Runs the label check right away, so the order is fulfilled without waiting for the 15-minute check. |
+| `transaction_updated` | If the label was voided or refunded, cancels its Swell shipment and puts the order back to **Awaiting label**. Otherwise runs the label check. |
+| `track_updated` | Saves the carrier's tracking status, details, date and estimated delivery on the order. |
+
+Other events are acknowledged and ignored.
+
+**Steps**
+
+1. **Pick a secret.** In the app settings, set **Webhook secret** to a long random string (for example the output of `openssl rand -hex 24`) and save. Until a secret is set, every webhook request is rejected.
+2. **Build the URL.** Take the pattern from the read-only **Webhook URL** setting:
+
+   ```
+   https://{store-id}:{public-key}@{store-id}.swell.store/functions/shippo/shippo-webhook?token={webhook-secret}
+   ```
+
+   - `{store-id}`: your Swell store ID, the subdomain of your `*.swell.store` address.
+   - `{public-key}`: a Swell **public** key from **Developer → API keys**. Use the test key to reach the test environment and the live key for live. Never use a secret key here.
+   - `{webhook-secret}`: the secret from step 1.
+
+   Example: `https://alder:pk_test_123…@alder.swell.store/functions/shippo/shippo-webhook?token=9f2c…`
+3. **Add it in Shippo.** In Shippo, open **Settings → Advanced → Webhooks** and add the URL once for each of `transaction_created`, `transaction_updated` and `track_updated`. Shippo webhooks are either test or live: register test webhooks with the Swell test key URL while you use a `shippo_test_` token, and live webhooks with the live key URL once you switch to a live token. Webhooks can also be created with Shippo's API (`POST https://api.goshippo.com/webhooks/` with `url`, `event` and `is_test`).
+4. **Test it.** Use Shippo's test button next to the webhook, or send a request yourself:
+
+   ```bash
+   curl -X POST 'https://{store-id}:{public-key}@{store-id}.swell.store/functions/shippo/shippo-webhook?token={webhook-secret}' \
+     -H 'Content-Type: application/json' \
+     -d '{"event":"track_updated","test":true,"data":{}}'
+   ```
+
+   A working webhook answers `200` with a JSON body starting with `{"received":true`. Then check the app's function logs (`swell logs --app shippo` or the dashboard's logs) for the `shippo-webhook` call.
+
+**Troubleshooting**
+
+| Response | Cause |
+|---|---|
+| `401` | The `token` in the URL doesn't match **Webhook secret**, or no secret is set. Log entry: `Shippo: webhook rejected`. |
+| `404` `Function app.shippo.shippo-webhook not found` | The public key is missing from the URL, belongs to another store, or the app isn't installed in that environment. |
+| `200` but nothing changes | **Enabled** is off in the app settings, the order was sent with a different Shippo token (test vs live), or the event isn't one of the three above. |
+
+The webhook URL contains your public key and the secret, so treat it like a password. To rotate it, change **Webhook secret**, save, and update the URL in Shippo. How the handler checks requests is described under [How it works](#how-it-works).
 
 ## How it works
 

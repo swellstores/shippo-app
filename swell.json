@@ -1,46 +1,46 @@
 {
-  "description": "Live Shippo rates at checkout, plus labels and tracking back to Swell",
-  "id": "shippo",
-  "name": "Shippo",
-  "type": "integration",
-  "version": "1.0.0",
-  "permissions": [],
-  "support_email": "support@swell.is",
-  "integrations": [
-    "shippo"
-  ],
-  "extensions": [
-    {
-      "id": "shippo",
-      "type": "shipping",
-      "name": "Shippo",
-      "description": "Live rates from your Shippo carrier accounts"
-    }
-  ],
-  "images": [
-    {
-      "id": "setup",
-      "title": "Connected in a few minutes",
-      "description": "Paste your Shippo API token and add the address your parcels ship from.",
-      "image_src": "assets/screenshots/1-settings.png"
-    },
-    {
-      "id": "checkout-rates",
-      "title": "Live carrier rates at checkout",
-      "description": "Turn on Shippo in Settings → Shipping, and customers choose from USPS, UPS, FedEx, DHL and more.",
-      "image_src": "assets/screenshots/2-shipping.png"
-    },
-    {
-      "id": "orders",
-      "title": "Every order, ready for a label",
-      "description": "Paid orders go to Shippo with the address, items, weight and the service the customer chose, and the order list shows their Shippo status.",
-      "image_src": "assets/screenshots/3-orders.png"
-    },
-    {
-      "id": "fulfilled",
-      "title": "Label bought, order fulfilled",
-      "description": "Buy the label in Shippo, and the order gets the carrier, tracking number and a link to the label.",
-      "image_src": "assets/screenshots/4-order.png"
-    }
-  ]
+	"description": "Live Shippo rates at checkout, plus labels and tracking back to Swell",
+	"id": "shippo",
+	"name": "Shippo",
+	"type": "integration",
+	"version": "1.0.0",
+	"permissions": [],
+	"support_email": "support@swell.is",
+	"integrations": [
+		"shippo"
+	],
+	"extensions": [
+		{
+			"id": "shippo",
+			"type": "shipping",
+			"name": "Shippo",
+			"description": "Live rates from your Shippo carrier accounts"
+		}
+	],
+	"images": [
+		{
+			"id": "setup",
+			"title": "Connected in a few minutes",
+			"description": "Paste your Shippo API token and add the address your parcels ship from.",
+			"image_src": "assets/screenshots/1-settings.png"
+		},
+		{
+			"id": "checkout-rates",
+			"title": "Live carrier rates at checkout",
+			"description": "Turn on Shippo in Settings → Shipping, and customers choose from USPS, UPS, FedEx, DHL and more.",
+			"image_src": "assets/screenshots/2-shipping.png"
+		},
+		{
+			"id": "orders",
+			"title": "Every order, ready for a label",
+			"description": "Paid orders go to Shippo with the address, items, weight and the service the customer chose, and the order list shows their Shippo status.",
+			"image_src": "assets/screenshots/3-orders.png"
+		},
+		{
+			"id": "fulfilled",
+			"title": "Label bought, order fulfilled",
+			"description": "Buy the label in Shippo, and the order gets the carrier, tracking number and a link to the label.",
+			"image_src": "assets/screenshots/4-order.png"
+		}
+	]
 }
