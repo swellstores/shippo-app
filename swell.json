@@ -1,0 +1,46 @@
+{
+  "description": "Live Shippo rates at checkout, plus labels and tracking back to Swell",
+  "id": "shippo",
+  "name": "Shippo",
+  "type": "integration",
+  "version": "1.0.0",
+  "permissions": [],
+  "support_email": "support@swell.is",
+  "integrations": [
+    "shippo"
+  ],
+  "extensions": [
+    {
+      "id": "shippo",
+      "type": "shipping",
+      "name": "Shippo",
+      "description": "Live rates from your Shippo carrier accounts"
+    }
+  ],
+  "images": [
+    {
+      "id": "checkout-rates",
+      "title": "Live carrier rates at checkout",
+      "description": "Customers pick from USPS, UPS, FedEx, DHL and more, priced by Shippo for their address and parcel.",
+      "image_src": "assets/screenshots/1-checkout-rates.png"
+    },
+    {
+      "id": "orders-to-shippo",
+      "title": "Paid orders, ready for a label",
+      "description": "Orders land on Shippo's Orders page with the address, items, weights and the service the customer chose.",
+      "image_src": "assets/screenshots/2-orders-to-shippo.png"
+    },
+    {
+      "id": "fulfilled-automatically",
+      "title": "Label bought, order fulfilled",
+      "description": "The Swell order gets a shipment with the carrier and tracking number, and a Shippo tab shows tracking status.",
+      "image_src": "assets/screenshots/3-fulfilled-automatically.png"
+    },
+    {
+      "id": "setup",
+      "title": "Connected in a few minutes",
+      "description": "Paste your Shippo API token, add your ship-from address and turn on Shippo in Settings → Shipping.",
+      "image_src": "assets/screenshots/4-setup.png"
+    }
+  ]
+}

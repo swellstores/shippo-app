@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json.swell.store/model.json",
+  "collection": "orders",
+  "description": "Shippo order, label and tracking data stored on orders",
+  "fields": {
+    "shippo_order_id": {
+      "type": "string",
+      "description": "Shippo order object ID"
+    },
+    "shippo_status": {
+      "type": "string",
+      "enum": ["awaiting_label", "label_created", "error"],
+      "description": "awaiting_label until a label is bought in Shippo"
+    },
+    "shippo_transaction_id": {
+      "type": "string",
+      "description": "Shippo transaction (label) object ID"
+    },
+    "shippo_tracking_number": {
+      "type": "string"
+    },
+    "shippo_tracking_url": {
+      "type": "string"
+    },
+    "shippo_label_url": {
+      "type": "string"
+    },
+    "shippo_carrier": {
+      "type": "string",
+      "description": "Carrier of the label, e.g. USPS"
+    },
+    "shippo_service": {
+      "type": "string",
+      "description": "Service level of the label, e.g. Priority Mail"
+    },
+    "shippo_shipment_id": {
+      "type": "objectid",
+      "description": "Swell shipment created from the Shippo label"
+    },
+    "shippo_tracking_status": {
+      "type": "string",
+      "description": "Carrier tracking status: UNKNOWN, PRE_TRANSIT, TRANSIT, DELIVERED, RETURNED or FAILURE"
+    },
+    "shippo_tracking_details": {
+      "type": "string"
+    },
+    "shippo_tracking_date": {
+      "type": "date",
+      "description": "Date of the latest applied carrier scan, used to skip out-of-order updates"
+    },
+    "shippo_eta": {
+      "type": "date"
+    },
+    "shippo_checked_at": {
+      "type": "date",
+      "description": "Last time Shippo was checked for a label"
+    },
+    "shippo_error": {
+      "type": "string"
+    }
+  }
+}

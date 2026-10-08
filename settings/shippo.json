@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json.swell.store/setting.json",
+  "label": "Shippo",
+  "description": "Live Shippo rates at checkout, orders sent to Shippo, and labels and tracking back to Swell. Get an API token in Shippo → Settings → Advanced → API.",
+  "actions": [
+    {
+      "id": "test_connection",
+      "label": "Test connection",
+      "function": "test-connection",
+      "loading_label": "Testing…",
+      "hint": "Checks the API token and lists your active Shippo carriers"
+    },
+    {
+      "id": "check_labels",
+      "label": "Check for labels now",
+      "function": "check-labels",
+      "loading_label": "Checking…",
+      "hint": "Fulfills orders whose Shippo label was bought since the last automatic check"
+    }
+  ],
+  "fields": [
+    {
+      "id": "api_token",
+      "label": "API token",
+      "type": "short_text",
+      "required": true,
+      "description": "Shippo → Settings → Advanced → API. Use a shippo_test_ token in your test environment and a shippo_live_ token in live."
+    },
+    {
+      "id": "enabled",
+      "label": "Enabled",
+      "type": "boolean",
+      "ui": "toggle",
+      "default": true,
+      "description": "Turns off rates, order sending, label checks and webhooks without uninstalling the app"
+    },
+    {
+      "type": "field_group",
+      "label": "Ship-from address",
+      "description": "Where your parcels ship from. Used for rates and sent with each order. Street, city, postal code and country are required for rates.",
+      "fields": [
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "from_name",
+              "label": "Name",
+              "type": "short_text",
+              "admin_span": 2
+            },
+            {
+              "id": "from_company",
+              "label": "Company",
+              "type": "short_text",
+              "admin_span": 2
+            }
+          ]
+        },
+        {
+          "id": "from_street1",
+          "label": "Street",
+          "type": "short_text"
+        },
+        {
+          "id": "from_street2",
+          "label": "Street line 2",
+          "type": "short_text"
+        },
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "from_city",
+              "label": "City",
+              "type": "short_text",
+              "admin_span": 2
+            },
+            {
+              "id": "from_state",
+              "label": "State / province code",
+              "type": "short_text",
+              "admin_span": 2,
+              "placeholder": "CA"
+            }
+          ]
+        },
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "from_zip",
+              "label": "Postal code",
+              "type": "short_text",
+              "admin_span": 2
+            },
+            {
+              "id": "from_country",
+              "label": "Country code",
+              "type": "short_text",
+              "admin_span": 2,
+              "placeholder": "US",
+              "description": "2-letter ISO code"
+            }
+          ]
+        },
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "from_phone",
+              "label": "Phone",
+              "type": "short_text",
+              "admin_span": 2
+            },
+            {
+              "id": "from_email",
+              "label": "Email",
+              "type": "short_text",
+              "admin_span": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "field_group",
+      "label": "Checkout rates",
+      "description": "To show the rates, turn on Shippo in Settings → Shipping and save.",
+      "fields": [
+        {
+          "id": "rates_enabled",
+          "label": "Show Shippo rates at checkout",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true
+        },
+        {
+          "id": "carrier_accounts",
+          "label": "Carrier accounts",
+          "type": "short_text",
+          "description": "Optional. Comma-separated Shippo carrier account object IDs to quote. Leave empty to quote all active carrier accounts."
+        },
+        {
+          "id": "service_levels",
+          "label": "Service levels",
+          "type": "short_text",
+          "placeholder": "usps_priority, usps_ground_advantage, ups_ground",
+          "description": "Optional. Comma-separated Shippo service level tokens to offer. Leave empty to offer every service."
+        },
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "markup_percent",
+              "label": "Markup (%)",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "admin_span": 2,
+              "description": "Added to each rate"
+            },
+            {
+              "id": "handling_fee",
+              "label": "Handling fee",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "admin_span": 2,
+              "description": "Flat amount added to each rate, in the checkout currency"
+            }
+          ]
+        },
+        {
+          "id": "show_delivery_days",
+          "label": "Show estimated delivery days",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "field_group",
+      "label": "Default parcel",
+      "description": "Every order is rated as one parcel with these dimensions. Weight is the sum of the items' shipping weights; the default weight is used when items have none.",
+      "fields": [
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "parcel_length",
+              "label": "Length",
+              "type": "number",
+              "default": 10,
+              "min": 0,
+              "admin_span": 1
+            },
+            {
+              "id": "parcel_width",
+              "label": "Width",
+              "type": "number",
+              "default": 8,
+              "min": 0,
+              "admin_span": 1
+            },
+            {
+              "id": "parcel_height",
+              "label": "Height",
+              "type": "number",
+              "default": 4,
+              "min": 0,
+              "admin_span": 1
+            },
+            {
+              "id": "distance_unit",
+              "label": "Unit",
+              "type": "select",
+              "default": "in",
+              "admin_span": 1,
+              "options": [
+                {
+                  "value": "in",
+                  "label": "in"
+                },
+                {
+                  "value": "cm",
+                  "label": "cm"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "default_weight",
+              "label": "Default weight",
+              "type": "number",
+              "default": 1,
+              "min": 0,
+              "admin_span": 2
+            },
+            {
+              "id": "mass_unit",
+              "label": "Weight unit",
+              "type": "select",
+              "default": "lb",
+              "admin_span": 2,
+              "options": [
+                {
+                  "value": "lb",
+                  "label": "lb"
+                },
+                {
+                  "value": "oz",
+                  "label": "oz"
+                },
+                {
+                  "value": "kg",
+                  "label": "kg"
+                },
+                {
+                  "value": "g",
+                  "label": "g"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "field_group",
+      "label": "Orders and labels",
+      "fields": [
+        {
+          "id": "send_orders",
+          "label": "Send orders to Shippo",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Orders appear on Shippo's Orders page, where you buy labels"
+        },
+        {
+          "id": "sync_on",
+          "label": "Send orders when",
+          "type": "select",
+          "default": "paid",
+          "options": [
+            {
+              "value": "paid",
+              "label": "Order is paid"
+            },
+            {
+              "value": "submitted",
+              "label": "Order is submitted"
+            }
+          ]
+        },
+        {
+          "id": "create_fulfillment",
+          "label": "Create Swell shipment when a label is bought",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Fulfills the order in Swell with the carrier and tracking number. Labels are checked every 15 minutes, or right away with the webhook."
+        }
+      ]
+    },
+    {
+      "type": "field_group",
+      "label": "Webhook",
+      "description": "Optional. Gives you instant fulfillment, tracking status and refunded labels.",
+      "fields": [
+        {
+          "id": "webhook_secret",
+          "label": "Webhook secret",
+          "type": "short_text",
+          "description": "Any long random string. It goes at the end of the webhook URL."
+        },
+        {
+          "id": "webhook_url",
+          "label": "Webhook URL",
+          "type": "short_text",
+          "readonly": true,
+          "default": "https://{store-id}:{public-key}@{store-id}.swell.store/functions/shippo/shippo-webhook?token={webhook-secret}",
+          "description": "Replace {store-id} with your store ID, {public-key} with your Swell public key (Developer → API keys; test key for test, live key for live) and {webhook-secret} with the secret above. Add it in Shippo → Settings → Advanced → Webhooks for transaction_created, transaction_updated and track_updated."
+        }
+      ]
+    }
+  ]
+}

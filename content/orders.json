@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json.swell.store/content.json",
+  "collection": "orders",
+  "description": "Shippo details on orders",
+  "fields": [
+    {
+      "id": "shippo_status",
+      "label": "Status",
+      "type": "select",
+      "readonly": true,
+      "options": [
+        { "value": "awaiting_label", "label": "Awaiting label" },
+        { "value": "label_created", "label": "Label created" },
+        { "value": "error", "label": "Error" }
+      ]
+    },
+    {
+      "id": "shippo_order_id",
+      "label": "Shippo order ID",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "shippo_carrier",
+      "label": "Carrier",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "shippo_service",
+      "label": "Service",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "shippo_tracking_number",
+      "label": "Tracking number",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "shippo_tracking_url",
+      "label": "Tracking page",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "shippo_label_url",
+      "label": "Label",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "shippo_tracking_status",
+      "label": "Tracking status",
+      "type": "select",
+      "readonly": true,
+      "options": [
+        { "value": "UNKNOWN", "label": "Unknown" },
+        { "value": "PRE_TRANSIT", "label": "Pre-transit" },
+        { "value": "TRANSIT", "label": "In transit" },
+        { "value": "DELIVERED", "label": "Delivered" },
+        { "value": "RETURNED", "label": "Returned" },
+        { "value": "FAILURE", "label": "Failure" }
+      ]
+    },
+    {
+      "id": "shippo_tracking_details",
+      "label": "Tracking details",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "shippo_eta",
+      "label": "Estimated delivery",
+      "type": "date",
+      "readonly": true
+    },
+    {
+      "id": "shippo_checked_at",
+      "label": "Last checked for a label",
+      "type": "date",
+      "readonly": true
+    },
+    {
+      "id": "shippo_error",
+      "label": "Error",
+      "type": "long_text",
+      "readonly": true
+    }
+  ],
+  "views": [
+    {
+      "id": "list",
+      "fields": [
+        {
+          "id": "shippo_status",
+          "label": "Shippo"
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "actions": [
+        {
+          "id": "send_to_shippo",
+          "label": "Send to Shippo",
+          "function": "send-to-shippo",
+          "loading_label": "Sending…",
+          "hint": "Sends this order to Shippo's Orders page if it isn't there yet"
+        }
+      ],
+      "tabs": [
+        {
+          "id": "shippo",
+          "label": "Shippo",
+          "fields": [
+            {
+              "type": "field_row",
+              "fields": [
+                { "id": "shippo_status", "admin_span": 2 },
+                { "id": "shippo_order_id", "admin_span": 2 }
+              ]
+            },
+            {
+              "type": "field_row",
+              "fields": [
+                { "id": "shippo_carrier", "admin_span": 2 },
+                { "id": "shippo_service", "admin_span": 2 }
+              ]
+            },
+            {
+              "type": "field_row",
+              "fields": [
+                { "id": "shippo_tracking_number", "admin_span": 2 },
+                { "id": "shippo_tracking_status", "admin_span": 2 }
+              ]
+            },
+            {
+              "type": "field_row",
+              "fields": [
+                { "id": "shippo_tracking_details", "admin_span": 2 },
+                { "id": "shippo_eta", "admin_span": 2 }
+              ]
+            },
+            { "id": "shippo_tracking_url" },
+            { "id": "shippo_label_url" },
+            {
+              "id": "shippo_checked_at",
+              "conditions": { "shippo_status": "awaiting_label" }
+            },
+            {
+              "id": "shippo_error",
+              "conditions": { "shippo_error": { "$exists": true } }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
