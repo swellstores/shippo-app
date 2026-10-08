@@ -22,7 +22,7 @@
     {
       "id": "api_token",
       "label": "API token",
-      "type": "short_text",
+      "type": "secret",
       "required": true,
       "description": "Shippo → Settings → Advanced → API. Use a shippo_test_ token in your test environment and a shippo_live_ token in live."
     },
@@ -316,7 +316,7 @@
         {
           "id": "webhook_secret",
           "label": "Webhook secret",
-          "type": "short_text",
+          "type": "secret",
           "description": "Any long random string. It goes at the end of the webhook URL."
         },
         {

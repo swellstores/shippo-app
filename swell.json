@@ -6,6 +6,8 @@
 	"version": "1.0.0",
 	"permissions": [],
 	"support_email": "support@swell.is",
+	"documentation_url": "https://developers.swell.is/app-guides/shippo",
+	"price_external": true,
 	"integrations": [
 		"shippo"
 	],
@@ -27,7 +29,7 @@
 		{
 			"id": "checkout-rates",
 			"title": "Live carrier rates at checkout",
-			"description": "Turn on Shippo in Settings → Shipping, and customers choose from USPS, UPS, FedEx, DHL and more.",
+			"description": "Turn on Shippo in Settings → Shipping, and customers choose from the services of your Shippo carriers.",
 			"image_src": "assets/screenshots/2-shipping.png"
 		},
 		{
