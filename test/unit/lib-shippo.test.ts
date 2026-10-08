@@ -11,6 +11,7 @@ import {
   deliveryDescription,
   formatShippoError,
   fromAddress,
+  getAccountEmail,
   getAppData,
   getOrder,
   getRate,
@@ -415,7 +416,7 @@ describe("buildShippoOrder", () => {
     ]);
   });
 
-  it("marks unpaid orders and omits missing weights and ship-from", () => {
+  it("marks unpaid orders, uses the default weight and omits ship-from", () => {
     const order: any = buildShippoOrder(
       makeOrder({
         paid: false,
@@ -427,9 +428,32 @@ describe("buildShippoOrder", () => {
 
     expect(order.order_status).toBe("AWAITPAY");
     expect(order).not.toHaveProperty("from_address");
-    expect(order).not.toHaveProperty("weight");
+    // Shippo requires an order weight: falls back to the default parcel weight
+    expect(order).toMatchObject({ weight: "1", weight_unit: "lb" });
     expect(order.line_items[0]).toMatchObject({ title: "Tee", variant_title: "M", sku: "TEE-M" });
     expect(order.line_items[0]).not.toHaveProperty("weight");
+  });
+});
+
+describe("getAccountEmail", () => {
+  it("uses the expanded account email", async () => {
+    const get = vi.fn();
+    expect(await getAccountEmail({ get } as any, { account: { email: "a@b.co" }, account_id: "acc_1" })).toBe("a@b.co");
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("loads the account by account_id", async () => {
+    const get = vi.fn().mockResolvedValue({ email: "jane@example.com" });
+    expect(await getAccountEmail({ get } as any, { account_id: "acc_1" })).toBe("jane@example.com");
+    expect(get).toHaveBeenCalledWith("/accounts/acc_1", { fields: "email" });
+  });
+
+  it("returns undefined without an account or when the lookup fails", async () => {
+    const get = vi.fn().mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await getAccountEmail({ get } as any, {})).toBeUndefined();
+    expect(await getAccountEmail({ get } as any, { account_id: "acc_1" })).toBeUndefined();
+    expect(await getAccountEmail({ get: vi.fn().mockResolvedValue(null) } as any, { account_id: "acc_1" })).toBeUndefined();
   });
 });
 

@@ -25,13 +25,13 @@ function cart(overrides: Record<string, any> = {}) {
   };
 }
 
-function request(settings: Record<string, any>, data = cart()) {
+function request(settings: Record<string, any>, data: Record<string, any> = cart()) {
   return createMockRequest({
     appId: "shippo",
     data,
     swell: {
       settings: vi.fn().mockResolvedValue({ shippo: settings }),
-      get: routeGet({ "/settings/shipments": { weight_unit: "g" } }),
+      get: routeGet({ "/settings/shipments": { weight_unit: "g" }, "/accounts/acc_1": { email: "jane@example.com" } }),
     },
   });
 }
@@ -59,6 +59,29 @@ describe("shipping-rates", () => {
       ["shippo_ups_ground", 4.1],
       ["shippo_usps_priority", 7.5],
     ]);
+  });
+
+  it("sends the customer email, loading the account when the cart has only account_id", async () => {
+    const { calls } = mockShippo({ "POST /shipments/": { rates: [makeRate()] } });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await handler(request(SETTINGS, cart({ account_id: "acc_1" })));
+
+    expect(calls[0].body.address_to.email).toBe("jane@example.com");
+  });
+
+  it("reads items and account_id from $record when the hook data has only the changed fields", async () => {
+    const { calls } = mockShippo({ "POST /shipments/": { rates: [makeRate()] } });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const { items, ...changed } = cart();
+
+    const result: any = await handler(
+      request(SETTINGS, { ...changed, account: {}, $record: { items, account_id: "acc_1", currency: "USD" } }),
+    );
+
+    expect(calls[0].body.parcels[0]).toMatchObject({ weight: "500", mass_unit: "g" });
+    expect(calls[0].body.address_to.email).toBe("jane@example.com");
+    expect(result.shipment_rating.services.map((s: any) => s.id)).toEqual(["standard", "shippo_usps_priority"]);
   });
 
   it("works when there were no services yet", async () => {

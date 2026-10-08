@@ -225,6 +225,23 @@ export function toAddress(address: any, email?: string): ShippoAddress | null {
   };
 }
 
+// hook data carries account_id but usually not the expanded account
+export async function getAccountEmail(swell: SwellAPI, record: any): Promise<string | undefined> {
+  if (record?.account?.email) {
+    return record.account.email;
+  }
+  if (!record?.account_id) {
+    return undefined;
+  }
+  try {
+    const account = await swell.get(`/accounts/${record.account_id}`, { fields: 'email' });
+    return account?.email || undefined;
+  } catch (err: any) {
+    console.warn(`Shippo: could not load account ${record.account_id} - ${err?.message || err}`);
+    return undefined;
+  }
+}
+
 const WEIGHT_UNITS = ['g', 'kg', 'lb', 'oz'];
 
 export async function getWeightUnit(swell: SwellAPI): Promise<string> {
@@ -390,7 +407,8 @@ export function buildShippoOrder(order: any, settings: ShippoSettings, weightUni
   const currency = order.currency;
   const email = order.account?.email;
   const items = shippableItems(order);
-  const weight = totalWeight(items);
+  // Shippo requires an order weight; items without weights fall back to the default parcel weight
+  const parcel = buildParcel(items, settings, weightUnit);
   const from = fromAddress(settings);
 
   return {
@@ -419,7 +437,8 @@ export function buildShippoOrder(order: any, settings: ShippoSettings, weightUni
     shipping_cost: money(order.shipment_total),
     shipping_cost_currency: currency,
     shipping_method: order.shipping?.service_name || undefined,
-    ...(weight > 0 && { weight: decimal(weight), weight_unit: weightUnit }),
+    weight: parcel.weight,
+    weight_unit: parcel.mass_unit,
     notes: order.comments || undefined,
   };
 }

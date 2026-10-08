@@ -3,6 +3,7 @@ import {
   ShippoRate,
   buildShipment,
   createShipment,
+  getAccountEmail,
   getShippoSettings,
   getWeightUnit,
   hasToken,
@@ -37,8 +38,11 @@ export default async function (req: SwellRequest) {
     (service: any) => !String(service?.id || '').startsWith(SERVICE_PREFIX),
   );
 
-  const weightUnit = await getWeightUnit(swell);
-  const shipment = buildShipment(data, settings, weightUnit);
+  // hook data holds only the changed fields; items and account_id come from the stored cart in $record
+  const cart = { ...data.$record, ...data };
+
+  const [weightUnit, email] = await Promise.all([getWeightUnit(swell), getAccountEmail(swell, cart)]);
+  const shipment = buildShipment({ ...cart, account: { ...cart.account, email } }, settings, weightUnit);
 
   if (!shipment) {
     // no ship-from address, no shipping country or nothing to ship yet
@@ -62,10 +66,10 @@ export default async function (req: SwellRequest) {
     return;
   }
 
-  const services = ratesToServices(rates, settings, data.currency);
+  const services = ratesToServices(rates, settings, cart.currency);
 
   if (rates.length && !services.length) {
-    console.warn(`Shippo: ${rates.length} rates returned, none in ${data.currency} or matching the service filter`);
+    console.warn(`Shippo: ${rates.length} rates returned, none in ${cart.currency} or matching the service filter`);
   }
 
   return {
