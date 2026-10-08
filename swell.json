@@ -19,28 +19,28 @@
   ],
   "images": [
     {
-      "id": "checkout-rates",
-      "title": "Live carrier rates at checkout",
-      "description": "Customers pick from USPS, UPS, FedEx, DHL and more, priced by Shippo for their address and parcel.",
-      "image_src": "assets/screenshots/1-checkout-rates.png"
-    },
-    {
-      "id": "orders-to-shippo",
-      "title": "Paid orders, ready for a label",
-      "description": "Orders land on Shippo's Orders page with the address, items, weights and the service the customer chose.",
-      "image_src": "assets/screenshots/2-orders-to-shippo.png"
-    },
-    {
-      "id": "fulfilled-automatically",
-      "title": "Label bought, order fulfilled",
-      "description": "The Swell order gets a shipment with the carrier and tracking number, and a Shippo tab shows tracking status.",
-      "image_src": "assets/screenshots/3-fulfilled-automatically.png"
-    },
-    {
       "id": "setup",
       "title": "Connected in a few minutes",
-      "description": "Paste your Shippo API token, add your ship-from address and turn on Shippo in Settings → Shipping.",
-      "image_src": "assets/screenshots/4-setup.png"
+      "description": "Paste your Shippo API token and add the address your parcels ship from.",
+      "image_src": "assets/screenshots/1-settings.png"
+    },
+    {
+      "id": "checkout-rates",
+      "title": "Live carrier rates at checkout",
+      "description": "Turn on Shippo in Settings → Shipping, and customers choose from USPS, UPS, FedEx, DHL and more.",
+      "image_src": "assets/screenshots/2-shipping.png"
+    },
+    {
+      "id": "orders",
+      "title": "Every order, ready for a label",
+      "description": "Paid orders go to Shippo with the address, items, weight and the service the customer chose, and the order list shows their Shippo status.",
+      "image_src": "assets/screenshots/3-orders.png"
+    },
+    {
+      "id": "fulfilled",
+      "title": "Label bought, order fulfilled",
+      "description": "Buy the label in Shippo, and the order gets the carrier, tracking number and a link to the label.",
+      "image_src": "assets/screenshots/4-order.png"
     }
   ]
 }
