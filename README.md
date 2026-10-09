@@ -109,7 +109,7 @@ Shippo doesn't sign webhooks, and the app doesn't need a secret: it never trusts
 | Function | Trigger | What it does |
 |---|---|---|
 | `functions/shipping-rates.ts` | `after:order.shipping`, extension `shippo` | Gets Shippo rates and adds them to `shipment_rating.services`. |
-| `functions/order-events.ts` | `order.submitted`, `order.paid` | Sends the order to Shippo on the event chosen in settings. |
+| `functions/shippo-order-events.ts` | `order.submitted`, `order.paid` | Sends the order to Shippo on the event chosen in settings. |
 | `functions/sync-labels.ts` | Cron, every 15 minutes | Checks orders awaiting a label and fulfills those with one. |
 | `functions/shippo-webhook.ts` | Public route, `POST` | Receives Shippo webhooks: runs the label check, handles refunded labels and saves tracking. |
 | `functions/test-connection.ts` | Settings action | Checks the token and lists carriers. |

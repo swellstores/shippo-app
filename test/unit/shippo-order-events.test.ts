@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import handler, { config } from "../../functions/order-events";
+import handler, { config } from "../../functions/shippo-order-events";
 import { createMockRequest } from "../helpers/mock-request";
 import { SETTINGS, makeOrder, mockShippo, routeGet } from "../helpers/fixtures";
 
@@ -24,7 +24,7 @@ function request(settings: Record<string, any>, eventType: string) {
   return { req, put };
 }
 
-describe("order-events", () => {
+describe("shippo-order-events", () => {
   it("listens to submitted and paid orders", () => {
     expect(config.model?.events).toEqual(["order.submitted", "order.paid"]);
   });
