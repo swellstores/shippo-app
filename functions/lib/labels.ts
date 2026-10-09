@@ -85,8 +85,30 @@ export async function findPurchasedLabel(
   return null;
 }
 
-// Swell shipment for everything still to be shipped on the order
+// Active Swell shipments of the order with this tracking number, oldest first
+export async function findShipmentsByTracking(swell: SwellAPI, orderId: string, trackingNumber?: string): Promise<any[]> {
+  if (!trackingNumber) {
+    return [];
+  }
+  const result: any = await swell.get('/shipments', {
+    where: { order_id: orderId, tracking_code: trackingNumber, canceled: { $ne: true } },
+    limit: 25,
+  });
+  return (result?.results || []).sort(
+    (a: any, b: any) => String(a.date_created).localeCompare(String(b.date_created)) || String(a.id).localeCompare(String(b.id)),
+  );
+}
+
+// Swell shipment for everything still to be shipped on the order. Webhooks can arrive twice at
+// the same moment, so an existing shipment for the label is reused, and if two runs still create
+// one each, the later copy is canceled and both runs return the oldest.
 export async function createSwellShipment(swell: SwellAPI, order: any, label: LabelDetails): Promise<string | null> {
+  const existing = await findShipmentsByTracking(swell, order.id, label.tracking_number);
+  if (existing.length) {
+    console.log(`Shippo: order ${order.number} already has shipment ${existing[0].id} for ${label.tracking_number}`);
+    return existing[0].id;
+  }
+
   const items = (order.items || [])
     .filter((item: any) => item.delivery === 'shipment' && item.quantity_shipment_deliverable > 0)
     .map((item: any) => ({
@@ -127,6 +149,14 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
   });
 
   console.log(`Shippo: created shipment ${shipment.id} for order ${order.number}`);
+
+  const copies = await findShipmentsByTracking(swell, order.id, label.tracking_number);
+  const oldest = copies[0];
+  if (oldest && oldest.id !== shipment.id) {
+    await swell.put(`/shipments/${shipment.id}`, { canceled: true });
+    console.log(`Shippo: canceled duplicate shipment ${shipment.id}; order ${order.number} keeps ${oldest.id}`);
+    return oldest.id;
+  }
   return shipment.id;
 }
 

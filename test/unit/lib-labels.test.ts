@@ -87,8 +87,10 @@ describe("findPurchasedLabel", () => {
 
 describe("createSwellShipment", () => {
   it("ships the deliverable items with carrier and tracking", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
     const post = vi.fn().mockResolvedValue({ id: "ship_1" });
-    const id = await createSwellShipment({ post } as any, makeOrder(), {
+    const get = vi.fn().mockResolvedValueOnce({ results: [] }).mockResolvedValueOnce({ results: [{ id: "ship_1" }] });
+    const id = await createSwellShipment({ post, get } as any, makeOrder(), {
       transaction_id: "tx_1",
       tracking_number: "9400111",
       tracking_url: "https://track",
@@ -110,6 +112,65 @@ describe("createSwellShipment", () => {
         notes: "Shippo label tx_1: https://track",
       }),
     );
+    expect(get).toHaveBeenCalledWith("/shipments", {
+      where: { order_id: ORDER_ID, tracking_code: "9400111", canceled: { $ne: true } },
+      limit: 25,
+    });
+  });
+
+  it("reuses the shipment a parallel run already created for the label", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const post = vi.fn();
+    const get = vi.fn().mockResolvedValue({ results: [{ id: "ship_0", date_created: "2026-10-09T12:49:52.739Z" }] });
+
+    expect(await createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" })).toBe(
+      "ship_0",
+    );
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("cancels its own copy when a parallel run created one at the same time", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const post = vi.fn().mockResolvedValue({ id: "ship_b" });
+    const put = vi.fn().mockResolvedValue({});
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ results: [] })
+      .mockResolvedValueOnce({
+        results: [
+          { id: "ship_b", date_created: "2026-10-09T12:49:52.756Z" },
+          { id: "ship_a", date_created: "2026-10-09T12:49:52.739Z" },
+        ],
+      });
+
+    const id = await createSwellShipment({ post, get, put } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" });
+
+    expect(id).toBe("ship_a");
+    expect(put).toHaveBeenCalledWith("/shipments/ship_b", { canceled: true });
+  });
+
+  it("keeps the oldest copy, by id when created at the same time", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const post = vi.fn().mockResolvedValue({ id: "ship_a" });
+    const put = vi.fn();
+    const same = "2026-10-09T12:49:52.739Z";
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ results: [{ id: "ship_b", date_created: same }, { id: "ship_a", date_created: same }] });
+
+    expect(await createSwellShipment({ post, get, put } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" })).toBe(
+      "ship_a",
+    );
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it("skips the duplicate lookup when the label has no tracking number", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const post = vi.fn().mockResolvedValue({ id: "ship_1" });
+    const get = vi.fn();
+    expect(await createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1" })).toBe("ship_1");
+    expect(get).not.toHaveBeenCalled();
   });
 
   it("returns null when nothing is left to ship", async () => {
@@ -129,7 +190,8 @@ describe("syncOrderLabel", () => {
     });
     const put = vi.fn().mockResolvedValue({});
     const post = vi.fn().mockResolvedValue({ id: "ship_1" });
-    const req = createMockRequest({ appId: "shippo", swell: { put, post } });
+    const get = vi.fn().mockResolvedValueOnce({ results: [] }).mockResolvedValueOnce({ results: [{ id: "ship_1" }] });
+    const req = createMockRequest({ appId: "shippo", swell: { put, post, get } });
 
     expect(await syncOrderLabel(req, SETTINGS, pendingOrder())).toBe("labeled");
 

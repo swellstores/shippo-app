@@ -107,7 +107,7 @@
           "label": "Send to Shippo",
           "function": "send-to-shippo",
           "loading_label": "Sending…",
-          "hint": "Sends this order to Shippo's Orders page if it isn't there yet"
+          "hint": "Sends this order to Shippo's Orders page if it isn't there yet, or again if its Shippo status is Error"
         }
       ],
       "tabs": [

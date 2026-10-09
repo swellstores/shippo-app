@@ -16,6 +16,8 @@ export interface SendResult {
   sent: boolean;
   shippo_order_id?: string;
   reason?: string;
+  // true when an order in the Error status was sent again as a new Shippo order
+  resent?: boolean;
 }
 
 // Sends one Swell order to Shippo's Orders page. Errors are saved on the order;
@@ -33,7 +35,10 @@ export async function sendOrder(req: SwellRequest, orderId: string, settings: Sh
 
   const appData = getAppData(order, appId);
 
-  if (appData.shippo_order_id) {
+  // an order in the Error status can be sent again: its Shippo order is gone or unusable
+  // (for example sent with another token), so a new Shippo order replaces it
+  const resend = Boolean(appData.shippo_order_id) && appData.shippo_status === STATUS_ERROR;
+  if (appData.shippo_order_id && !resend) {
     return { sent: false, shippo_order_id: appData.shippo_order_id, reason: 'Already sent to Shippo' };
   }
 
@@ -66,8 +71,12 @@ export async function sendOrder(req: SwellRequest, orderId: string, settings: Sh
       }),
     );
 
-    console.log(`Shippo: sent order ${order.number} as Shippo order ${created?.object_id}`);
-    return { sent: true, shippo_order_id: created?.object_id };
+    console.log(
+      resend
+        ? `Shippo: sent order ${order.number} again as Shippo order ${created?.object_id} (was ${appData.shippo_order_id})`
+        : `Shippo: sent order ${order.number} as Shippo order ${created?.object_id}`,
+    );
+    return { sent: true, shippo_order_id: created?.object_id, ...(resend && { resent: true }) };
   } catch (err: any) {
     const message = err?.message || String(err);
     console.error(`Shippo: failed to send order ${order.number} - ${message}`);

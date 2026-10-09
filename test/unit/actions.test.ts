@@ -100,6 +100,14 @@ describe("check-labels", () => {
   it("asks for a token first", async () => {
     expect((await checkLabels(request({}))).message).toMatch(/Add your Shippo API token/);
   });
+
+  it("does nothing while the app is turned off", async () => {
+    const get = vi.fn();
+    expect(await checkLabels(request({ ...SETTINGS, enabled: false }, { get }))).toEqual({
+      message: "The Shippo app is turned off. Turn on Enabled in the app settings first.",
+    });
+    expect(get).not.toHaveBeenCalled();
+  });
 });
 
 describe("send-to-shippo", () => {
@@ -117,6 +125,21 @@ describe("send-to-shippo", () => {
   it("sends the order", async () => {
     mockShippo({ "POST /orders/": { object_id: "so_1" } });
     expect(await sendToShippo(sendRequest(SETTINGS, makeOrder()))).toEqual({ message: "Sent to Shippo as order so_1." });
+  });
+
+  it("says when an order in the Error status was sent again", async () => {
+    mockShippo({ "POST /orders/": { object_id: "so_2" } });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const order = makeOrder({ $app: { shippo: { shippo_order_id: "so_1", shippo_status: "error" } } });
+    expect(await sendToShippo(sendRequest(SETTINGS, order))).toEqual({ message: "Sent to Shippo again as order so_2." });
+  });
+
+  it("does nothing while the app is turned off", async () => {
+    const { fetchMock } = mockShippo({});
+    expect(await sendToShippo(sendRequest({ ...SETTINGS, enabled: false }, makeOrder()))).toEqual({
+      message: "The Shippo app is turned off. Turn on Enabled in the app settings first.",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("explains why an order wasn't sent", async () => {

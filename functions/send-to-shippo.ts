@@ -15,6 +15,10 @@ export default async function (req: SwellRequest) {
 
   const settings = await getShippoSettings(req.swell);
 
+  if (settings.enabled === false) {
+    return { message: 'The Shippo app is turned off. Turn on Enabled in the app settings first.' };
+  }
+
   if (!hasToken(settings)) {
     return { message: 'Add your Shippo API token in the app settings first.' };
   }
@@ -22,7 +26,11 @@ export default async function (req: SwellRequest) {
   try {
     const result = await sendOrder(req, orderId, settings);
     if (result.sent) {
-      return { message: `Sent to Shippo as order ${result.shippo_order_id}.` };
+      return {
+        message: result.resent
+          ? `Sent to Shippo again as order ${result.shippo_order_id}.`
+          : `Sent to Shippo as order ${result.shippo_order_id}.`,
+      };
     }
     return { message: `Not sent: ${result.reason}.` };
   } catch (err: any) {

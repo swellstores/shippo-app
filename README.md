@@ -6,7 +6,7 @@ Connects a Swell store to [Shippo](https://goshippo.com). Customers see live Shi
 
 - **Live rates at checkout:** a Swell shipping extension. When a cart's shipping address or items change, the app asks Shippo for rates (`POST /shipments`, synchronous) from your ship-from address to the customer's, for one parcel. Every Shippo service level becomes a checkout option, named like `USPS Priority Mail`, with estimated delivery days. You can limit carrier accounts and service levels, and add a markup and a handling fee. Other shipping services (Swell's own, or other apps') stay as they are.
 - **Orders to Shippo:** when an order is paid (or submitted, see settings) and has items to ship, it's created in Shippo (`POST /orders`). The Shippo order has the shipping address, ship-from address, line items with SKU, prices and weights, totals, and the service the customer chose at checkout. An order is sent only once.
-- **Send to Shippo button:** an order's page has a **Send to Shippo** action. Use it for orders placed before the app was installed, or to retry after an error.
+- **Send to Shippo button:** an order's page has a **Send to Shippo** action. Use it for orders placed before the app was installed, or to retry an order whose Shippo status is **Error**: it's sent again as a new Shippo order, for example when its old Shippo order belongs to another token. Orders waiting for a label or already labeled are never sent twice.
 - **Fulfillment from labels:** every 15 minutes the app checks the Shippo orders that don't have a label yet. When it finds a purchased label, it creates a Swell shipment for everything still to ship, with the carrier, service and tracking number. The **Check for labels now** action in the app settings runs the check right away.
 - **Webhook (optional):** with the Shippo webhook set up, a new label triggers the check right away. Carrier tracking updates (in transit, delivered and so on) are saved on the order. A refunded (voided) label cancels its Swell shipment, and the order waits for a new label.
 - **Order tab:** a **Shippo** tab on the order page shows the status, Shippo order ID, carrier, service, tracking number, tracking page, label link, tracking status and details, estimated delivery, the last check and the last error. The orders list gets a **Shippo** status column.
@@ -45,7 +45,7 @@ All credentials and options are app settings (`settings/shippo.json`). Nothing i
 | **Webhook** | | | |
 | Webhook URL | read-only | `https://{store-id}:{public-key}@{store-id}.swell.store/functions/shippo/shippo-webhook` | The URL pattern to paste into Shippo, with the placeholders replaced. |
 
-**Actions** (Actions menu on the app's settings page): **Test connection** and **Check for labels now**. **Send to Shippo** is on each order's page.
+**Actions** (Actions menu on the app's settings page): **Test connection** and **Check for labels now**. **Send to Shippo** is on each order's page. While **Enabled** is off, Check for labels now and Send to Shippo do nothing and say so.
 
 ## Setup
 
@@ -127,7 +127,7 @@ Data stored on each order under `$app.shippo` (`models/orders.json`): `shippo_or
 
 **Label matching:** Shippo labels (transactions) don't say which order they belong to, but a Shippo order lists its labels. So the app reads each pending Shippo order (`GET /orders/{id}`), then its transactions (`GET /transactions/{id}`), and takes the first with status `SUCCESS`. The carrier and service come from the label's rate (`GET /rates/{id}`). Each pass checks up to 10 orders, least recently checked first, and stops starting new ones after about 6 seconds.
 
-**Swell shipments:** `carrier` is the Shippo provider name in lowercase with underscores (`USPS` → `usps`, `DHL Express` → `dhl_express`), which matches Swell's own carrier IDs. `service` is the readable service name, and `notes` has the Shippo label ID and tracking link.
+**Swell shipments:** `carrier` is the Shippo provider name in lowercase with underscores (`USPS` → `usps`, `DHL Express` → `dhl_express`), which matches Swell's own carrier IDs. `service` is the readable service name, and `notes` has the Shippo label ID and tracking link. Shippo can deliver the same webhook twice at the same moment, so before creating a shipment the app reuses an active one with the label's tracking number, and if two runs still each create one, the later copy cancels itself.
 
 **Webhook security:** Shippo doesn't sign webhooks, and the URL carries no secret. The handler never trusts the payload instead: transactions are loaded again with `GET /transactions/{id}` and tracking with `GET /tracks/{carrier}/{number}` using your API token, so a forged call can at most make the app re-check real labels or tracking numbers. The handler answers right away and does the work after responding, because Shippo waits only 3 seconds.
 

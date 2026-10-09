@@ -47,6 +47,31 @@ describe("sendOrder", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
+  it("never resends orders waiting for or holding a label", async () => {
+    const { fetchMock } = mockShippo({});
+    for (const shippo_status of ["awaiting_label", "label_created"]) {
+      const { req } = setup(makeOrder({ $app: { shippo: { shippo_order_id: "so_0", shippo_status } } }));
+      expect((await sendOrder(req, "64f0c0ffee0000000000aaaa", SETTINGS)).reason).toBe("Already sent to Shippo");
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends an order in the Error status again as a new Shippo order", async () => {
+    const { calls } = mockShippo({ "POST /orders/": { object_id: "so_2" } });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { req, put } = setup(
+      makeOrder({ $app: { shippo: { shippo_order_id: "so_1", shippo_status: "error", shippo_error: "Shippo 404: Not found." } } }),
+    );
+
+    expect(await sendOrder(req, "64f0c0ffee0000000000aaaa", SETTINGS)).toEqual({ sent: true, shippo_order_id: "so_2", resent: true });
+    expect(calls).toHaveLength(1);
+    expect(put).toHaveBeenCalledWith("/orders/64f0c0ffee0000000000aaaa", {
+      $app: { shippo: { shippo_order_id: "so_2", shippo_status: "awaiting_label", shippo_error: null } },
+    });
+    expect(log).toHaveBeenCalledWith("Shippo: sent order 100123 again as Shippo order so_2 (was so_1)");
+    log.mockRestore();
+  });
+
   it("skips missing, canceled and non-shippable orders", async () => {
     mockShippo({});
     expect((await sendOrder(setup(null).req, "64f0c0ffee0000000000aaaa", SETTINGS)).reason).toBe("Order not found");

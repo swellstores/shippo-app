@@ -9,6 +9,10 @@ export const config: SwellConfig = {
 export default async function (req: SwellRequest) {
   const settings = await getShippoSettings(req.swell);
 
+  if (settings.enabled === false) {
+    return { message: 'The Shippo app is turned off. Turn on Enabled in the app settings first.' };
+  }
+
   if (!hasToken(settings)) {
     return { message: 'Add your Shippo API token and save the settings first.' };
   }
