@@ -24,7 +24,6 @@ import {
   money,
   ratePrice,
   ratesToServices,
-  safeEqual,
   serviceId,
   shippableItems,
   shippoRequest,
@@ -469,12 +468,5 @@ describe("misc", () => {
     expect(carrierId("DHL Express")).toBe("dhl_express");
     expect(carrierId("FedEx")).toBe("fedex");
     expect(carrierId(undefined)).toBeUndefined();
-  });
-
-  it("safeEqual compares exactly", () => {
-    expect(safeEqual("abc", "abc")).toBe(true);
-    expect(safeEqual("abc", "abd")).toBe(false);
-    expect(safeEqual("abc", "abcd")).toBe(false);
-    expect(safeEqual("", "")).toBe(false);
   });
 });

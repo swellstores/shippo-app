@@ -1,5 +1,5 @@
 import { applyRefundedLabel, applyTrackingUpdate, getTrack, syncPendingOrders } from './lib/labels';
-import { ShippoSettings, getShippoSettings, getTransaction, hasToken, safeEqual } from './lib/shippo';
+import { ShippoSettings, getShippoSettings, getTransaction, hasToken } from './lib/shippo';
 
 export const config: SwellConfig = {
   description: 'Receive Shippo webhooks',
@@ -9,20 +9,11 @@ export const config: SwellConfig = {
   },
 };
 
-// Shippo doesn't sign webhooks, so the URL carries a secret token, and every
-// transaction or track is loaded again from the Shippo API before it is used.
+// Shippo doesn't sign webhooks, so the payload is never trusted: every transaction
+// or track is loaded again from the Shippo API with your token before it is used.
 export async function post(req: SwellRequest) {
   const { swell } = req;
   const settings = await getShippoSettings(swell);
-
-  const secret = settings.webhook_secret?.trim() || '';
-  // query params can also arrive merged into req.data (e.g. through `swell api`)
-  const token = String(req.query?.token || req.data?.token || '');
-
-  if (!secret || !safeEqual(token, secret)) {
-    console.warn('Shippo: webhook rejected', { has_token: Boolean(token), has_secret: Boolean(secret) });
-    throw new SwellError('Invalid webhook token', { status: 401 });
-  }
 
   if (settings.enabled === false || !hasToken(settings)) {
     return { received: true, processed: false };

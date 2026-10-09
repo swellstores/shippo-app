@@ -23,7 +23,6 @@ export const SETTINGS: ShippoSettings = {
   send_orders: true,
   sync_on: "paid",
   create_fulfillment: true,
-  webhook_secret: "s3cret-token",
 };
 
 export const SHIPPING = {

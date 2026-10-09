@@ -45,16 +45,15 @@ describe("test-connection", () => {
     });
   });
 
-  it("points out missing carriers, address and webhook secret", async () => {
+  it("points out missing carriers and address", async () => {
     mockShippo({ "GET /carrier_accounts/": { results: [] } });
     const { message } = await testConnection(
-      request({ api_token: "shippo_live_x", webhook_secret: "", from_street1: "" }),
+      request({ api_token: "shippo_live_x", from_street1: "" }),
     );
 
     expect(message).toContain("Connected to Shippo (live token). Active carriers: none.");
     expect(message).toContain("No active carrier accounts");
     expect(message).toContain("Fill in the ship-from address");
-    expect(message).toContain("Set a webhook secret");
   });
 
   it("reports a rejected token", async () => {

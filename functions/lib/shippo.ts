@@ -34,7 +34,6 @@ export interface ShippoSettings {
   send_orders?: boolean;
   sync_on?: 'paid' | 'submitted';
   create_fulfillment?: boolean;
-  webhook_secret?: string;
 }
 
 export interface ShippoAddress {
@@ -451,16 +450,4 @@ export function getAppData(record: any, appId: string): Record<string, any> {
 // Swell carrier ids match Shippo provider names: "DHL Express" -> dhl_express
 export function carrierId(provider?: string): string | undefined {
   return provider ? provider.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') : undefined;
-}
-
-// constant-time comparison for the webhook token
-export function safeEqual(a: string, b: string): boolean {
-  if (!a || !b || a.length !== b.length) {
-    return false;
-  }
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
 }

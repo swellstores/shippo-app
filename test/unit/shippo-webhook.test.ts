@@ -10,15 +10,11 @@ afterEach(() => {
 
 const ORDER_ID = "64f0c0ffee0000000000aaaa";
 
-function request(
-  body: unknown,
-  { token = SETTINGS.webhook_secret as string | null, settings = SETTINGS as Record<string, any>, swell = {} } = {},
-) {
+function request(body: unknown, { settings = SETTINGS as Record<string, any>, swell = {} } = {}) {
   const pending: Promise<unknown>[] = [];
   const req = createMockRequest({
     appId: "shippo",
     data: body as any,
-    query: token === null ? {} : { token },
     swell: { settings: vi.fn().mockResolvedValue({ shippo: settings }), ...swell },
   });
   (req as any).context = { waitUntil: (promise: Promise<unknown>) => pending.push(promise) };
@@ -30,21 +26,16 @@ describe("shippo-webhook", () => {
     expect(config.route).toEqual({ methods: ["post"], public: true });
   });
 
-  it("rejects a wrong or missing token", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    await expect(post(request({ event: "track_updated" }, { token: "nope" }).req)).rejects.toMatchObject({ status: 401 });
-    await expect(post(request({ event: "track_updated" }, { token: null }).req)).rejects.toMatchObject({ status: 401 });
-  });
+  it("accepts webhooks without a token and ignores one in the URL", async () => {
+    mockShippo({ "GET /tracks/usps/1": { tracking_number: "1", tracking_status: null } });
+    const plain = request({ event: "track_updated", data: { carrier: "usps", tracking_number: "1" } });
+    expect(await post(plain.req)).toEqual({ received: true, event: "track_updated" });
+    await Promise.all(plain.pending);
 
-  it("accepts the token from req.data when the query is empty", async () => {
-    const { req } = request({ token: SETTINGS.webhook_secret }, { token: null });
-    expect(await post(req)).toEqual({ received: true, processed: false });
-  });
-
-  it("rejects everything until a secret is configured", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { req } = request({ event: "track_updated" }, { token: "", settings: { ...SETTINGS, webhook_secret: "" } });
-    await expect(post(req)).rejects.toMatchObject({ status: 401 });
+    const withToken = request({ event: "track_updated", data: { carrier: "usps", tracking_number: "1" } });
+    (withToken.req as any).query = { token: "anything" };
+    expect(await post(withToken.req)).toEqual({ received: true, event: "track_updated" });
+    await Promise.all(withToken.pending);
   });
 
   it("acknowledges without work when disabled or the payload is empty", async () => {

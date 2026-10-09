@@ -314,18 +314,12 @@
       "description": "Optional. Gives you instant fulfillment, tracking status and refunded labels.",
       "fields": [
         {
-          "id": "webhook_secret",
-          "label": "Webhook secret",
-          "type": "secret",
-          "description": "Any long random string. It goes at the end of the webhook URL."
-        },
-        {
           "id": "webhook_url",
           "label": "Webhook URL",
           "type": "short_text",
           "readonly": true,
-          "default": "https://{store-id}:{public-key}@{store-id}.swell.store/functions/shippo/shippo-webhook?token={webhook-secret}",
-          "description": "Replace {store-id} with your store ID, {public-key} with your Swell public key (Developer → API keys; test key for test, live key for live) and {webhook-secret} with the secret above. Add it in Shippo → Settings → Advanced → Webhooks for transaction_created, transaction_updated and track_updated."
+          "default": "https://{store-id}:{public-key}@{store-id}.swell.store/functions/shippo/shippo-webhook",
+          "description": "Replace {store-id} with your store ID and {public-key} with your Swell public key (Developer → API keys; test key for test, live key for live). Add it in Shippo → Settings → Advanced → Webhooks for transaction_created, transaction_updated and track_updated."
         }
       ]
     }

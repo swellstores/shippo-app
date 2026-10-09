@@ -30,9 +30,6 @@ export default async function (req: SwellRequest) {
   if (!fromAddress(settings)) {
     notes.push('Fill in the ship-from address (street, city, postal code and country) to get rates.');
   }
-  if (!settings.webhook_secret?.trim()) {
-    notes.push('Set a webhook secret to receive tracking updates and refunded labels.');
-  }
 
   return {
     message: [
