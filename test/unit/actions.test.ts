@@ -58,8 +58,9 @@ describe("test-connection", () => {
 
   it("reports a rejected token", async () => {
     mockShippo({ "GET /carrier_accounts/": jsonResponse({ detail: "Invalid token." }, 401) });
-    expect(await testConnection(request(SETTINGS))).toEqual({
-      message: "Shippo rejected the request: Shippo 401: Invalid token.",
+    await expect(testConnection(request(SETTINGS))).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("Shippo didn't accept the API token"),
     });
   });
 

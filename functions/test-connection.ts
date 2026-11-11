@@ -1,4 +1,4 @@
-import { fromAddress, getShippoSettings, hasToken, isTestToken, listCarrierAccounts } from './lib/shippo';
+import { ShippoError, fromAddress, getShippoSettings, hasToken, isTestToken, listCarrierAccounts } from './lib/shippo';
 
 export const config: SwellConfig = {
   description: 'Check the Shippo API token',
@@ -15,8 +15,17 @@ export default async function (req: SwellRequest) {
   let accounts: any[];
   try {
     accounts = await listCarrierAccounts(settings);
-  } catch (err: any) {
-    return { message: `Shippo rejected the request: ${err?.message || err}` };
+  } catch (err) {
+    if (err instanceof ShippoError && (err.status === 401 || err.status === 403)) {
+      throw new SwellError(
+        "Shippo didn't accept the API token. Copy it again from Shippo → Settings → Advanced → API, save it, then test again.",
+        { status: 400 },
+      );
+    }
+    if (err instanceof ShippoError) {
+      throw new SwellError(`${err.message.replace(/\.$/, '')}. Try again in a minute.`, { status: 400 });
+    }
+    throw new SwellError("Couldn't reach Shippo. Try again in a minute.", { status: 400 });
   }
 
   const active = accounts.filter((account) => account.active !== false);
