@@ -109,7 +109,7 @@ export async function findShipmentsByTracking(swell: SwellAPI, orderId: string, 
 // Swell shipment for everything still to be shipped on the order. Webhooks can arrive twice at
 // the same moment, so an existing shipment for the label is reused, and if two runs still create
 // one each, the later copy is canceled and both runs return the oldest.
-export async function createSwellShipment(swell: SwellAPI, order: any, label: LabelDetails): Promise<string | null> {
+export async function createSwellShipment(swell: SwellAPI, order: any, label: LabelDetails): Promise<string> {
   const existing = await findShipmentsByTracking(swell, order.id, label.tracking_number);
   if (existing.length) {
     console.log(`Shippo: order ${order.number} already has shipment ${existing[0].id} for ${label.tracking_number}`);
@@ -125,9 +125,10 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
       quantity: item.quantity_shipment_deliverable,
     }));
 
+  // the same case as Swell refusing the items below, found before creating the shipment
   if (!items.length) {
     console.log(`Shippo: order ${order.number} has nothing left to ship`);
-    return null;
+    throw new ItemsAlreadyShipped('nothing left to ship');
   }
 
   const shipping = order.shipping || {};
@@ -167,11 +168,12 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
     }
     const refused = errors && itemsRefusal(errors);
     if (!refused) throw err;
-    // the items were shipped meanwhile, e.g. by a parallel run for this label: use its shipment
-    const copies = await findShipmentsByTracking(swell, order.id, label.tracking_number);
-    if (copies.length) {
-      console.log(`Shippo: order ${order.number} was shipped meanwhile; keeps shipment ${copies[0].id}`);
-      return copies[0].id;
+    // The items were shipped meanwhile, e.g. by a parallel run for this label: use its shipment. Swell reserves the
+    // items before it writes that shipment, so it's looked for again after a moment if it isn't there yet.
+    const copy = await findParallelShipment(swell, order.id, label.tracking_number);
+    if (copy) {
+      console.log(`Shippo: order ${order.number} was shipped meanwhile; keeps shipment ${copy.id}`);
+      return copy.id;
     }
     // shipped, fully or partly, by another shipment: only full shipments are made, so the label is saved without one
     console.warn(`Shippo: Swell refused the shipment for order ${order.number}: ${refused}`);
@@ -188,6 +190,17 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
     return oldest.id;
   }
   return shipment.id;
+}
+
+// how long to wait before looking again for a parallel run's shipment that Swell hasn't written yet
+export const PARALLEL_SHIPMENT_WAIT_MS = 1000;
+
+async function findParallelShipment(swell: SwellAPI, orderId: string, trackingNumber?: string): Promise<any | null> {
+  if (!trackingNumber) return null;
+  const found = await findShipmentsByTracking(swell, orderId, trackingNumber);
+  if (found.length) return found[0];
+  await new Promise((resolve) => setTimeout(resolve, PARALLEL_SHIPMENT_WAIT_MS));
+  return (await findShipmentsByTracking(swell, orderId, trackingNumber))[0] || null;
 }
 
 // Swell refused the shipment's items as already shipped by another shipment (another app, or by hand); the message is
