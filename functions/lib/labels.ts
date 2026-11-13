@@ -125,7 +125,7 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
       quantity: item.quantity_shipment_deliverable,
     }));
 
-  // the same case as Swell refusing the items below, found before creating the shipment
+  // same as Swell refusing the items below
   if (!items.length) {
     console.log(`Shippo: order ${order.number} has nothing left to ship`);
     throw new ItemsAlreadyShipped('nothing left to ship');
@@ -160,22 +160,28 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
       $validate_items: true,
     });
   } catch (err) {
-    // The Swell client throws a refused write as a SwellError with the errors in `body`
+    // a refused write throws a SwellError with the errors in `body`
     const errors = validationErrors(err);
-    // the order's shipments are locked by another write: thrown, so the order is checked again
+    // shipments locked by another write: thrown, so the order is checked again
     if (errors?.order_id) {
       throw new Error(`Swell couldn't create the shipment for order ${order.number}: ${errorText(errors)}`);
     }
     const refused = errors && itemsRefusal(errors);
     if (!refused) throw err;
-    // The items were shipped meanwhile, e.g. by a parallel run for this label: use its shipment. Swell reserves the
-    // items before it writes that shipment, so it's looked for again after a moment if it isn't there yet.
-    const copy = await findParallelShipment(swell, order.id, label.tracking_number);
+    // a parallel run for this label shipped the items: use its shipment
+    const [copy] = await findShipmentsByTracking(swell, order.id, label.tracking_number);
     if (copy) {
       console.log(`Shippo: order ${order.number} was shipped meanwhile; keeps shipment ${copy.id}`);
       return copy.id;
     }
-    // shipped, fully or partly, by another shipment: only full shipments are made, so the label is saved without one
+    // Swell also counts items reserved by writes in progress (up to 3 minutes). If the saved shipments still leave every
+    // item, it's only a reservation: thrown, so the order is checked again
+    if (await stillDeliverable(swell, order.id, items)) {
+      throw new Error(
+        `Swell couldn't create the shipment for order ${order.number} yet: its items are reserved by another shipment write in progress (${refused}). It's checked again in the next pass.`,
+      );
+    }
+    // shipped elsewhere (fully or partly) or refunded: the label is saved without a shipment
     console.warn(`Shippo: Swell refused the shipment for order ${order.number}: ${refused}`);
     throw new ItemsAlreadyShipped(refused);
   }
@@ -192,32 +198,27 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
   return shipment.id;
 }
 
-// how long to wait before looking again for a parallel run's shipment that Swell hasn't written yet
-export const PARALLEL_SHIPMENT_WAIT_MS = 1000;
-
-async function findParallelShipment(swell: SwellAPI, orderId: string, trackingNumber?: string): Promise<any | null> {
-  if (!trackingNumber) return null;
-  const found = await findShipmentsByTracking(swell, orderId, trackingNumber);
-  if (found.length) return found[0];
-  await new Promise((resolve) => setTimeout(resolve, PARALLEL_SHIPMENT_WAIT_MS));
-  return (await findShipmentsByTracking(swell, orderId, trackingNumber))[0] || null;
+// whether the order's saved shipments (not reservations) still leave every requested item to ship
+async function stillDeliverable(swell: SwellAPI, orderId: string, requested: { order_item_id: string; quantity: number }[]) {
+  const order: any = await swell.get(`/orders/${orderId}`);
+  const left = new Map<string, number>((order?.items || []).map((item: any) => [String(item.id), Number(item.quantity_shipment_deliverable) || 0]));
+  return requested.every((item) => (left.get(String(item.order_item_id)) || 0) >= item.quantity);
 }
 
-// Swell refused the shipment's items as already shipped by another shipment (another app, or by hand); the message is
-// Swell's reason, e.g. "Cannot ship 2 of item <id>, only 1 left to deliver"
+// the order's items were shipped elsewhere, refunded or canceled; the message is the reason
 export class ItemsAlreadyShipped extends Error {}
 
 export function itemsShippedNote(reason: string): string {
-  return `Label saved, but no shipment was created: the order's items were already shipped by another shipment (${reason}).`;
+  return `Label saved, but no shipment was created: the order's items were already shipped by another shipment, or refunded or canceled (${reason}).`;
 }
 
-// the { field: { message } } errors of a write Swell refused (the SwellError's body)
+// errors of a write Swell refused, from the SwellError's body
 function validationErrors(err: any): Record<string, any> | undefined {
   const errors = err?.status === 400 ? err.body : undefined;
   return errors && typeof errors === 'object' ? errors : undefined;
 }
 
-// Swell's reason when it refused the items as no longer left to ship (validateShipmentItems with $validate_items)
+// Swell's "Cannot ship …" reason when $validate_items refused the items
 function itemsRefusal(errors: Record<string, any>): string | undefined {
   const message = errors.items?.message;
   return typeof message === 'string' && /^Cannot ship /.test(message) ? message : undefined;

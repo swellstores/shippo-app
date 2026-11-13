@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ItemsAlreadyShipped,
-  PARALLEL_SHIPMENT_WAIT_MS,
   itemsShippedNote,
   applyRefundedLabel,
   applyTrackingUpdate,
@@ -28,6 +27,16 @@ function refused(errors: Record<string, any>) {
   return Object.assign(new Error(`POST /shipments\n${JSON.stringify(errors)}`), { name: "SwellError", status: 400, body: errors });
 }
 const NOT_LEFT = "Cannot ship 2 of item item_1, only 0 left to deliver";
+
+// GET for a refused shipment: no shipment with the label's tracking number, and the order read again with `left` of
+// item_1 still to ship by its saved shipments
+function afterRefusal(left: number, copy?: any) {
+  return vi.fn(async (path: string) =>
+    path === "/shipments"
+      ? { results: copy ? [copy] : [] }
+      : makeOrder({ items: [{ id: "item_1", delivery: "shipment", quantity_shipment_deliverable: left }] }),
+  );
+}
 
 function pendingOrder(overrides: Record<string, any> = {}) {
   return makeOrder({ $app: { shippo: { shippo_order_id: "so_1", shippo_status: "awaiting_label" } }, ...overrides });
@@ -143,38 +152,33 @@ describe("createSwellShipment", () => {
   });
 
   it("throws ItemsAlreadyShipped when the items were shipped by another shipment", async () => {
-    vi.useFakeTimers();
-    try {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const post = vi.fn().mockRejectedValue(refused({ items: { message: NOT_LEFT } }));
-      const get = vi.fn().mockResolvedValue({ results: [] });
-      const result = createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }).catch((e) => e);
-      await vi.advanceTimersByTimeAsync(PARALLEL_SHIPMENT_WAIT_MS);
-      expect(await result).toBeInstanceOf(ItemsAlreadyShipped);
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining(NOT_LEFT));
-      // looked for a parallel run's shipment before the post, right after the refusal and once more after the wait
-      expect(get).toHaveBeenCalledTimes(3);
-    } finally {
-      vi.useRealTimers();
-    }
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const post = vi.fn().mockRejectedValue(refused({ items: { message: NOT_LEFT } }));
+    const get = afterRefusal(0);
+    await expect(
+      createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
+    ).rejects.toBeInstanceOf(ItemsAlreadyShipped);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(NOT_LEFT));
+    expect(get).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
   });
 
-  it("finds a parallel run's shipment that Swell wrote only after the refusal", async () => {
-    vi.useFakeTimers();
-    try {
-      vi.spyOn(console, "log").mockImplementation(() => {});
-      const post = vi.fn().mockRejectedValue(refused({ items: { message: NOT_LEFT } }));
-      const get = vi
-        .fn()
-        .mockResolvedValueOnce({ results: [] })
-        .mockResolvedValueOnce({ results: [] })
-        .mockResolvedValueOnce({ results: [{ id: "ship_a", date_created: "2026-10-09T12:49:52.739Z" }] });
-      const result = createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" });
-      await vi.advanceTimersByTimeAsync(PARALLEL_SHIPMENT_WAIT_MS);
-      expect(await result).toBe("ship_a");
-    } finally {
-      vi.useRealTimers();
-    }
+  it("treats a partial shipment elsewhere as shipped elsewhere: only full shipments are made", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const post = vi.fn().mockRejectedValue(refused({ items: { message: "Cannot ship 2 of item item_1, only 1 left to deliver" } }));
+    await expect(
+      createSwellShipment({ post, get: afterRefusal(1) } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
+    ).rejects.toBeInstanceOf(ItemsAlreadyShipped);
+  });
+
+  it("throws a retryable error when the items are only reserved by a shipment write in progress", async () => {
+    const post = vi.fn().mockRejectedValue(refused({ items: { message: NOT_LEFT } }));
+    // the saved shipments still leave both items to ship: Swell counted a reservation
+    const result = createSwellShipment({ post, get: afterRefusal(2) } as any, makeOrder(), {
+      transaction_id: "tx_1",
+      tracking_number: "9400111",
+    });
+    await expect(result).rejects.toThrow("its items are reserved by another shipment write in progress");
+    await expect(result).rejects.not.toBeInstanceOf(ItemsAlreadyShipped);
   });
 
   it("throws when the order's shipments are locked by another write, so the order is checked again", async () => {
