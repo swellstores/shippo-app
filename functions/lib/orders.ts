@@ -10,6 +10,8 @@ import {
 
 export const STATUS_AWAITING_LABEL = 'awaiting_label';
 export const STATUS_LABEL_CREATED = 'label_created';
+// a label was bought, but another shipment (another app, or by hand) had already shipped the order's items in Swell
+export const STATUS_SHIPPED_ELSEWHERE = 'shipped_elsewhere';
 export const STATUS_ERROR = 'error';
 
 export interface SendResult {

@@ -231,7 +231,7 @@ describe("syncOrderLabel", () => {
 
     expect(await syncOrderLabel(req, SETTINGS, pendingOrder())).toBe("labeled");
     const saved = put.mock.calls.at(-1)![1].$app.shippo;
-    expect(saved).toMatchObject({ shippo_status: "label_created", shippo_transaction_id: "tx_1", shippo_note: ITEMS_SHIPPED_NOTE });
+    expect(saved).toMatchObject({ shippo_status: "shipped_elsewhere", shippo_transaction_id: "tx_1", shippo_note: ITEMS_SHIPPED_NOTE });
     expect(saved).not.toHaveProperty("shippo_shipment_id");
   });
 

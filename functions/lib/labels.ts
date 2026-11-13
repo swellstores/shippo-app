@@ -1,4 +1,4 @@
-import { STATUS_AWAITING_LABEL, STATUS_ERROR, STATUS_LABEL_CREATED } from './orders';
+import { STATUS_AWAITING_LABEL, STATUS_ERROR, STATUS_LABEL_CREATED, STATUS_SHIPPED_ELSEWHERE } from './orders';
 import {
   ShippoError,
   ShippoSettings,
@@ -253,6 +253,7 @@ export async function syncOrderLabel(
       }
     } catch (err) {
       if (!(err instanceof ItemsAlreadyShipped)) throw err;
+      values.shippo_status = STATUS_SHIPPED_ELSEWHERE;
       values.shippo_note = ITEMS_SHIPPED_NOTE;
     }
   }

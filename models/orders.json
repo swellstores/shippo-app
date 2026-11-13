@@ -9,7 +9,7 @@
     },
     "shippo_status": {
       "type": "string",
-      "enum": ["awaiting_label", "label_created", "error"],
+      "enum": ["awaiting_label", "label_created", "shipped_elsewhere", "error"],
       "description": "awaiting_label until a label is bought in Shippo"
     },
     "shippo_transaction_id": {

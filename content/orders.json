@@ -11,6 +11,7 @@
       "options": [
         { "value": "awaiting_label", "label": "Awaiting label" },
         { "value": "label_created", "label": "Label created" },
+        { "value": "shipped_elsewhere", "label": "Label bought, shipped elsewhere" },
         { "value": "error", "label": "Error" }
       ]
     },
