@@ -7,7 +7,7 @@ export const config: SwellConfig = {
 };
 
 export default async function (req: SwellRequest) {
-  // every failure, including a failed Swell read, is a red error popup with a message
+  // every failure, a failed Swell read too, is a red error popup
   let summary;
   try {
     const settings = await getShippoSettings(req.swell);
@@ -39,7 +39,7 @@ export default async function (req: SwellRequest) {
   }
 
   const message = `${parts.join(', ')}.${summary.remaining ? ' More orders are waiting; run it again or wait for the next automatic check.' : ''}`;
-  // a check where any order failed is an error, its message also counting the orders that got a label
+  // any failed order makes the result an error
   if (summary.errors) {
     fail(message);
   }

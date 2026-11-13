@@ -74,8 +74,7 @@ export async function sendOrder(req: SwellRequest, orderId: string, settings: Sh
     throw err;
   }
 
-  // Saved apart from the create call: the app doesn't look Shippo orders up by order number, so a failed save is only
-  // logged. Rethrowing it would run the event again, find no shippo_order_id and create a second Shippo order.
+  // A failed save is only logged: rethrowing would run the event again and create a second Shippo order
   try {
     await swell.put(
       `/orders/${orderId}`,

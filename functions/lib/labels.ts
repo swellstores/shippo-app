@@ -25,12 +25,11 @@ export interface SyncSummary {
   labeled: number;
   errors: number;
   remaining: boolean;
-  // why the pass stopped early: Shippo refused the token (401 or 403), which would fail every other order too
+  // set when Shippo refused the token (401 or 403) and the pass stopped
   stopped?: string;
 }
 
-// Shippo refused the token itself (401) or access (403, not a documented Shippo status): not the order's fault, so
-// the pass stops and the orders keep waiting instead of all being marked as errors
+// 401 and 403 are about the token, not the order: the pass stops and the orders keep waiting
 export function isTokenRefused(err: unknown): err is ShippoError {
   return err instanceof ShippoError && (err.status === 401 || err.status === 403);
 }
@@ -154,7 +153,26 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
     service_name: label.servicelevel_name,
     tracking_code: label.tracking_number,
     notes: `Shippo label ${label.transaction_id}${label.tracking_url ? `: ${label.tracking_url}` : ''}`,
+    // Swell refuses items the order has no longer left to ship, so they can't be shipped twice
+    $validate_items: true,
   });
+
+  // a refused write returns { errors } instead of throwing
+  if (shipment?.errors) {
+    // the order's shipments are locked by another write: thrown, so the order is checked again
+    if (shipment.errors.order_id) {
+      throw new Error(`Swell couldn't create the shipment for order ${order.number}: ${errorText(shipment.errors)}`);
+    }
+    // the items were shipped meanwhile, e.g. by a parallel run for this label: use its shipment
+    const copies = await findShipmentsByTracking(swell, order.id, label.tracking_number);
+    if (copies.length) {
+      console.log(`Shippo: order ${order.number} was shipped meanwhile; keeps shipment ${copies[0].id}`);
+      return copies[0].id;
+    }
+    // shipped some other way: the label is saved without a shipment
+    console.warn(`Shippo: Swell refused the shipment for order ${order.number}: ${errorText(shipment.errors)}`);
+    return null;
+  }
 
   console.log(`Shippo: created shipment ${shipment.id} for order ${order.number}`);
 
@@ -166,6 +184,13 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
     return oldest.id;
   }
   return shipment.id;
+}
+
+// Swell's { field: { message } } errors as one line
+function errorText(errors: Record<string, any>): string {
+  return Object.entries(errors)
+    .map(([field, error]) => `${field}: ${error?.message || error}`)
+    .join('; ');
 }
 
 // Checks one order's Shippo order for a purchased label and fulfills the order
@@ -182,8 +207,7 @@ export async function syncOrderLabel(
   try {
     shippoOrder = await getOrder(settings, appData.shippo_order_id);
   } catch (err: any) {
-    // The Shippo order is gone, or was made with another token (Shippo keeps test and live data apart and answers 404
-    // for objects it doesn't have); stop checking it. 401 and 403 are about the token, not the order: they're rethrown.
+    // the Shippo order is gone or was made with another token: stop checking it (401 and 403 are rethrown)
     if (err instanceof ShippoError && [400, 404].includes(err.status)) {
       await swell.put(
         `/orders/${order.id}`,

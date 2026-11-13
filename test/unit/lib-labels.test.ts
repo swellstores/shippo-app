@@ -110,12 +110,43 @@ describe("createSwellShipment", () => {
         service_name: "Priority Mail",
         tracking_code: "9400111",
         notes: "Shippo label tx_1: https://track",
+        $validate_items: true,
       }),
     );
     expect(get).toHaveBeenCalledWith("/shipments", {
       where: { order_id: ORDER_ID, tracking_code: "9400111", canceled: { $ne: true } },
       limit: 25,
     });
+  });
+
+  it("uses the parallel run's shipment when Swell refuses the items as already shipped", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const post = vi.fn().mockResolvedValue({ errors: { items: { message: "Not enough items left to ship" } } });
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ results: [] })
+      .mockResolvedValueOnce({ results: [{ id: "ship_a", date_created: "2026-10-09T12:49:52.739Z" }] });
+    const put = vi.fn();
+    expect(await createSwellShipment({ post, get, put } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" })).toBe(
+      "ship_a",
+    );
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it("returns no shipment when the items were shipped some other way", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const post = vi.fn().mockResolvedValue({ errors: { items: { message: "Not enough items left to ship" } } });
+    const get = vi.fn().mockResolvedValue({ results: [] });
+    expect(await createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" })).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("items: Not enough items left to ship"));
+  });
+
+  it("throws when the order's shipments are locked by another write, so the order is checked again", async () => {
+    const post = vi.fn().mockResolvedValue({ errors: { order_id: { message: "Order shipments are being updated, please try again" } } });
+    const get = vi.fn().mockResolvedValue({ results: [] });
+    await expect(
+      createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
+    ).rejects.toThrow("order_id: Order shipments are being updated, please try again");
   });
 
   it("reuses the shipment a parallel run already created for the label", async () => {

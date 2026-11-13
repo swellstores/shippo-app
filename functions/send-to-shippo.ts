@@ -13,7 +13,7 @@ export default async function (req: SwellRequest) {
     fail('Open an order to send it to Shippo.');
   }
 
-  // every failure, including a failed Swell read, is a red error popup with a message
+  // every failure, a failed Swell read too, is a red error popup
   let result;
   try {
     const settings = await getShippoSettings(req.swell);
