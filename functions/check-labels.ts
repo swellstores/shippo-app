@@ -1,5 +1,5 @@
 import { syncPendingOrders } from './lib/labels';
-import { getShippoSettings, hasToken } from './lib/shippo';
+import { fail, getShippoSettings, hasToken } from './lib/shippo';
 
 export const config: SwellConfig = {
   description: 'Check Shippo for new labels now',
@@ -7,17 +7,21 @@ export const config: SwellConfig = {
 };
 
 export default async function (req: SwellRequest) {
-  const settings = await getShippoSettings(req.swell);
-
-  if (settings.enabled === false) {
-    return { message: 'The Shippo app is turned off. Turn on Enabled in the app settings first.' };
+  // every failure, including a failed Swell read, is a red error popup with a message
+  let summary;
+  try {
+    const settings = await getShippoSettings(req.swell);
+    if (settings.enabled === false) {
+      fail('The Shippo app is turned off. Turn on Enabled in the app settings first.');
+    }
+    if (!hasToken(settings)) {
+      fail('Add your Shippo API token and save the settings first.');
+    }
+    summary = await syncPendingOrders(req, settings);
+  } catch (err: any) {
+    if (err instanceof SwellError) throw err;
+    fail(`Check for labels failed: ${err?.message || err}`);
   }
-
-  if (!hasToken(settings)) {
-    return { message: 'Add your Shippo API token and save the settings first.' };
-  }
-
-  const summary = await syncPendingOrders(req, settings);
 
   if (!summary.checked) {
     return { message: 'No orders are waiting for a Shippo label.' };
@@ -28,7 +32,10 @@ export default async function (req: SwellRequest) {
     parts.push(`${summary.errors} with errors (see the Shippo tab on the order)`);
   }
 
-  return {
-    message: `${parts.join(', ')}.${summary.remaining ? ' More orders are waiting; run it again or wait for the next automatic check.' : ''}`,
-  };
+  const message = `${parts.join(', ')}.${summary.remaining ? ' More orders are waiting; run it again or wait for the next automatic check.' : ''}`;
+  // a check where any order failed is an error, its message also counting the orders that got a label
+  if (summary.errors) {
+    fail(message);
+  }
+  return { message };
 }

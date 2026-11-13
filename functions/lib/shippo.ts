@@ -90,6 +90,12 @@ export class ShippoError extends Error {
   }
 }
 
+// a thrown 400 shows in the admin as a red error popup, a returned { message } as a regular one; actions use this
+// for every failure so the merchant can tell an error from a result
+export function fail(message: string): never {
+  throw new SwellError(message, { status: 400 });
+}
+
 export async function getShippoSettings(swell: SwellAPI): Promise<ShippoSettings> {
   const all = await swell.settings();
   return all?.shippo || {};

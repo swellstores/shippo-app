@@ -58,25 +58,10 @@ export async function sendOrder(req: SwellRequest, orderId: string, settings: Sh
     return { sent: false, reason: 'Missing shipping address' };
   }
 
+  let created: any;
   try {
     const weightUnit = await getWeightUnit(swell);
-    const created = await createOrder(settings, buildShippoOrder(order, settings, weightUnit));
-
-    await swell.put(
-      `/orders/${orderId}`,
-      req.appValues({
-        shippo_order_id: created?.object_id,
-        shippo_status: STATUS_AWAITING_LABEL,
-        shippo_error: null,
-      }),
-    );
-
-    console.log(
-      resend
-        ? `Shippo: sent order ${order.number} again as Shippo order ${created?.object_id} (was ${appData.shippo_order_id})`
-        : `Shippo: sent order ${order.number} as Shippo order ${created?.object_id}`,
-    );
-    return { sent: true, shippo_order_id: created?.object_id, ...(resend && { resent: true }) };
+    created = await createOrder(settings, buildShippoOrder(order, settings, weightUnit));
   } catch (err: any) {
     const message = err?.message || String(err);
     console.error(`Shippo: failed to send order ${order.number} - ${message}`);
@@ -88,4 +73,28 @@ export async function sendOrder(req: SwellRequest, orderId: string, settings: Sh
     }
     throw err;
   }
+
+  // Saved apart from the create call: the app doesn't look Shippo orders up by order number, so a failed save is only
+  // logged. Rethrowing it would run the event again, find no shippo_order_id and create a second Shippo order.
+  try {
+    await swell.put(
+      `/orders/${orderId}`,
+      req.appValues({
+        shippo_order_id: created?.object_id,
+        shippo_status: STATUS_AWAITING_LABEL,
+        shippo_error: null,
+      }),
+    );
+  } catch (err: any) {
+    console.error(
+      `Shippo: order ${order.number} was sent as Shippo order ${created?.object_id}, but saving it on the order failed - ${err?.message || err}`,
+    );
+  }
+
+  console.log(
+    resend
+      ? `Shippo: sent order ${order.number} again as Shippo order ${created?.object_id} (was ${appData.shippo_order_id})`
+      : `Shippo: sent order ${order.number} as Shippo order ${created?.object_id}`,
+  );
+  return { sent: true, shippo_order_id: created?.object_id, ...(resend && { resent: true }) };
 }

@@ -45,7 +45,7 @@ All credentials and options are app settings (`settings/shippo.json`). Nothing i
 | **Webhook** | | | |
 | Webhook URL | read-only | `https://{store-id}:{public-key}@{store-id}.swell.store/functions/shippo/shippo-webhook` | The URL pattern to paste into Shippo, with the placeholders replaced. |
 
-**Actions** (Actions menu on the app's settings page): **Test connection** and **Check for labels now**. **Send to Shippo** is on each order's page. While **Enabled** is off, Check for labels now and Send to Shippo do nothing and say so.
+**Actions** (Actions menu on the app's settings page): **Test connection** and **Check for labels now**. **Send to Shippo** is on each order's page. While **Enabled** is off, Check for labels now and Send to Shippo do nothing and say so. Every failure of an action is a red error popup (a `SwellError` with status 400): a missing token, the app turned off, an order not sent and why ("Not sent: …"), a check where any order had an error (the message still counts the orders that got a label), and a failed Swell read ("Test connection failed: …", "Check for labels failed: …"). Results are regular messages.
 
 ## Setup
 
@@ -143,7 +143,7 @@ Data stored on each order under `$app.shippo` (`models/orders.json`): `shippo_or
 - **International shipments:** no customs declaration is sent with rate requests, so some international rates may be missing. Customs forms are filled in Shippo when buying the label.
 - **Weights:** items without a shipping weight add nothing to the parcel weight. The default weight is used only when no item has a weight.
 - **Webhook URL credentials:** the Swell public key goes in the URL (`https://{store-id}:{public-key}@…`), the way Swell routes public functions to the right environment. If Shippo refuses URLs with credentials, the webhook can't be used; the 15-minute check still works.
-- **Retries:** errors from Shippo are saved to the order's `shippo_error`. Only Shippo 5xx and network errors are retried for order sending. Model-event functions that keep failing are turned off by the platform after about 4 days.
+- **Retries:** errors from Shippo are saved to the order's `shippo_error`. Only Shippo 5xx and network errors are retried for order sending. Once the Shippo order is created, a failure to save its ID on the Swell order is only logged and not retried, so the order isn't sent to Shippo twice; that order then has no Shippo status, and sending it again with **Send to Shippo** creates a second Shippo order. Model-event functions that keep failing are turned off by the platform after about 4 days.
 
 ## Development
 

@@ -12,6 +12,15 @@ afterEach(() => {
 
 const ORDER_ID = "64f0c0ffee0000000000aaaa";
 
+// failures are thrown as a 400 so the dashboard shows them as a red error popup
+async function expectFailure(result: Promise<unknown>, message: string | RegExp) {
+  await expect(result).rejects.toMatchObject({
+    name: "SwellError",
+    status: 400,
+    message: typeof message === "string" ? message : expect.stringMatching(message),
+  });
+}
+
 function request(settings: Record<string, any>, swell: Record<string, any> = {}, data: Record<string, any> = {}) {
   return createMockRequest({
     appId: "shippo",
@@ -65,7 +74,13 @@ describe("test-connection", () => {
   });
 
   it("asks for a token first", async () => {
-    expect((await testConnection(request({}))).message).toMatch(/Add your Shippo API token/);
+    await expectFailure(testConnection(request({})), /Add your Shippo API token/);
+  });
+
+  it("shows a failed settings read as a red popup with a message", async () => {
+    const req = request({});
+    (req.swell.settings as any).mockRejectedValue(new Error("settings unavailable"));
+    await expectFailure(testConnection(req), "Test connection failed: settings unavailable");
   });
 });
 
@@ -78,10 +93,11 @@ describe("check-labels", () => {
       put: vi.fn().mockResolvedValue({}),
     });
 
-    expect(await checkLabels(req)).toEqual({
-      message:
-        "Checked 2 orders, 0 with a new label, 1 with errors (see the Shippo tab on the order). More orders are waiting; run it again or wait for the next automatic check.",
-    });
+    // an order with an error makes the result an error popup, which still counts the rest
+    await expectFailure(
+      checkLabels(req),
+      "Checked 2 orders, 0 with a new label, 1 with errors (see the Shippo tab on the order). More orders are waiting; run it again or wait for the next automatic check.",
+    );
   });
 
   it("uses the singular for one order", async () => {
@@ -99,15 +115,21 @@ describe("check-labels", () => {
   });
 
   it("asks for a token first", async () => {
-    expect((await checkLabels(request({}))).message).toMatch(/Add your Shippo API token/);
+    await expectFailure(checkLabels(request({})), /Add your Shippo API token/);
   });
 
   it("does nothing while the app is turned off", async () => {
     const get = vi.fn();
-    expect(await checkLabels(request({ ...SETTINGS, enabled: false }, { get }))).toEqual({
-      message: "The Shippo app is turned off. Turn on Enabled in the app settings first.",
-    });
+    await expectFailure(
+      checkLabels(request({ ...SETTINGS, enabled: false }, { get })),
+      "The Shippo app is turned off. Turn on Enabled in the app settings first.",
+    );
     expect(get).not.toHaveBeenCalled();
+  });
+
+  it("shows a failed Swell read as a red popup with a message", async () => {
+    const req = request(SETTINGS, { get: vi.fn().mockRejectedValue(new Error("Service unavailable")) });
+    await expectFailure(checkLabels(req), "Check for labels failed: Service unavailable");
   });
 });
 
@@ -137,31 +159,28 @@ describe("send-to-shippo", () => {
 
   it("does nothing while the app is turned off", async () => {
     const { fetchMock } = mockShippo({});
-    expect(await sendToShippo(sendRequest({ ...SETTINGS, enabled: false }, makeOrder()))).toEqual({
-      message: "The Shippo app is turned off. Turn on Enabled in the app settings first.",
-    });
+    await expectFailure(
+      sendToShippo(sendRequest({ ...SETTINGS, enabled: false }, makeOrder())),
+      "The Shippo app is turned off. Turn on Enabled in the app settings first.",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("explains why an order wasn't sent", async () => {
     mockShippo({});
     const order = makeOrder({ $app: { shippo: { shippo_order_id: "so_0" } } });
-    expect(await sendToShippo(sendRequest(SETTINGS, order))).toEqual({ message: "Not sent: Already sent to Shippo." });
+    await expectFailure(sendToShippo(sendRequest(SETTINGS, order)), "Not sent: Already sent to Shippo.");
   });
 
   it("reports Shippo outages", async () => {
     mockShippo({ "POST /orders/": jsonResponse({ detail: "down" }, 503) });
     vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await sendToShippo(sendRequest(SETTINGS, makeOrder()))).toEqual({ message: "Not sent: Shippo 503: down" });
+    await expectFailure(sendToShippo(sendRequest(SETTINGS, makeOrder())), "Not sent: Shippo 503: down");
   });
 
   it("validates the record id and the token", async () => {
-    expect((await sendToShippo(sendRequest(SETTINGS, null, "../settings"))).message).toBe(
-      "Open an order to send it to Shippo.",
-    );
-    expect((await sendToShippo(sendRequest(SETTINGS, null, null))).message).toBe(
-      "Open an order to send it to Shippo.",
-    );
-    expect((await sendToShippo(sendRequest({}, null))).message).toMatch(/Add your Shippo API token/);
+    await expectFailure(sendToShippo(sendRequest(SETTINGS, null, "../settings")), "Open an order to send it to Shippo.");
+    await expectFailure(sendToShippo(sendRequest(SETTINGS, null, null)), "Open an order to send it to Shippo.");
+    await expectFailure(sendToShippo(sendRequest({}, null)), /Add your Shippo API token/);
   });
 });

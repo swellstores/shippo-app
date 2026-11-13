@@ -34,6 +34,18 @@ describe("sendOrder", () => {
     });
   });
 
+  it("doesn't throw when saving the Shippo order id fails, so the event isn't run again and doesn't send it twice", async () => {
+    const { calls } = mockShippo({ "POST /orders/": { object_id: "so_1" } });
+    const { req, put } = setup(makeOrder());
+    put.mockRejectedValue(new Error("Service unavailable"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await sendOrder(req, "64f0c0ffee0000000000aaaa", SETTINGS)).toEqual({ sent: true, shippo_order_id: "so_1" });
+    expect(calls).toHaveLength(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("was sent as Shippo order so_1, but saving it on the order failed"));
+    errorSpy.mockRestore();
+  });
+
   it("skips orders already in Shippo", async () => {
     const { fetchMock } = mockShippo({});
     const { req, put } = setup(makeOrder({ $app: { shippo: { shippo_order_id: "so_0" } } }));

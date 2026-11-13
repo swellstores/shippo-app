@@ -1,4 +1,4 @@
-import { ShippoError, fromAddress, getShippoSettings, hasToken, isTestToken, listCarrierAccounts } from './lib/shippo';
+import { ShippoError, fail, fromAddress, getShippoSettings, hasToken, isTestToken, listCarrierAccounts } from './lib/shippo';
 
 export const config: SwellConfig = {
   description: 'Check the Shippo API token',
@@ -6,10 +6,15 @@ export const config: SwellConfig = {
 };
 
 export default async function (req: SwellRequest) {
-  const settings = await getShippoSettings(req.swell);
+  let settings;
+  try {
+    settings = await getShippoSettings(req.swell);
+  } catch (err: any) {
+    fail(`Test connection failed: ${err?.message || err}`);
+  }
 
   if (!hasToken(settings)) {
-    return { message: 'Add your Shippo API token and save the settings first.' };
+    fail('Add your Shippo API token and save the settings first.');
   }
 
   let accounts: any[];
