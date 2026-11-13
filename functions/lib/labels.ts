@@ -212,9 +212,11 @@ export function itemsShippedNote(reason: string): string {
   return `Label saved, but no shipment was created: the order's items were already shipped by another shipment, or refunded or canceled (${reason}).`;
 }
 
-// errors of a write Swell refused, from the SwellError's body
+// Errors of a write Swell refused, from the SwellError's body: the errors themselves when Swell answered 2xx with
+// { errors }, the whole response ({ errors }) when it answered 4xx
 function validationErrors(err: any): Record<string, any> | undefined {
-  const errors = err?.status === 400 ? err.body : undefined;
+  if (!(err?.status >= 400 && err.status < 500)) return undefined;
+  const errors = err.body?.errors ?? err.body;
   return errors && typeof errors === 'object' ? errors : undefined;
 }
 

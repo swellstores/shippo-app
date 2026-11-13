@@ -162,6 +162,15 @@ describe("createSwellShipment", () => {
     expect(get).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
   });
 
+  it("reads the errors when Swell answered 4xx with the whole { errors } response as the body", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = Object.assign(new Error("POST /shipments"), { name: "SwellError", status: 422, body: { errors: { items: { message: NOT_LEFT } } } });
+    const post = vi.fn().mockRejectedValue(error);
+    await expect(
+      createSwellShipment({ post, get: afterRefusal(0) } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
+    ).rejects.toBeInstanceOf(ItemsAlreadyShipped);
+  });
+
   it("treats a partial shipment elsewhere as shipped elsewhere: only full shipments are made", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const post = vi.fn().mockRejectedValue(refused({ items: { message: "Cannot ship 2 of item item_1, only 1 left to deliver" } }));
