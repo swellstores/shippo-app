@@ -158,11 +158,11 @@
             },
             {
               "id": "shippo_note",
-              "conditions": { "shippo_note": { "$exists": true } }
+              "conditions": { "shippo_note": { "$exists": true, "$ne": null } }
             },
             {
               "id": "shippo_error",
-              "conditions": { "shippo_error": { "$exists": true } }
+              "conditions": { "shippo_error": { "$exists": true, "$ne": null } }
             }
           ]
         }
