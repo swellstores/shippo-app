@@ -23,6 +23,12 @@ export default async function (req: SwellRequest) {
     fail(`Check for labels failed: ${err?.message || err}`);
   }
 
+  if (summary.stopped) {
+    fail(
+      `Check for labels stopped: ${summary.stopped.replace(/\.$/, '')}. Check the API token in the app settings; the orders still waiting for a label weren't changed.`,
+    );
+  }
+
   if (!summary.checked) {
     return { message: 'No orders are waiting for a Shippo label.' };
   }

@@ -248,6 +248,23 @@ describe("syncOrderLabel", () => {
     });
   });
 
+  it("marks an order Error on 400 too (an invalid Shippo order id)", async () => {
+    mockShippo({ "GET /orders/so_1": jsonResponse({ detail: "Invalid id." }, 400) });
+    const put = vi.fn().mockResolvedValue({});
+    const req = createMockRequest({ appId: "shippo", swell: { put } });
+    expect(await syncOrderLabel(req, SETTINGS, pendingOrder())).toBe("error");
+  });
+
+  it("rethrows 401 and 403 without touching the order: they're about the token", async () => {
+    for (const status of [401, 403]) {
+      mockShippo({ "GET /orders/so_1": jsonResponse({ detail: "Token refused." }, status) });
+      const put = vi.fn();
+      const req = createMockRequest({ appId: "shippo", swell: { put } });
+      await expect(syncOrderLabel(req, SETTINGS, pendingOrder())).rejects.toMatchObject({ status });
+      expect(put).not.toHaveBeenCalled();
+    }
+  });
+
   it("rethrows other Shippo errors", async () => {
     mockShippo({ "GET /orders/so_1": jsonResponse({ detail: "down" }, 500) });
     const req = createMockRequest({ appId: "shippo", swell: { put: vi.fn() } });
@@ -294,6 +311,21 @@ describe("getPendingOrders / syncPendingOrders", () => {
     });
 
     expect(await syncPendingOrders(req, SETTINGS)).toEqual({ checked: 3, labeled: 1, errors: 1, remaining: false });
+  });
+
+  it("stops the pass at a refused token and leaves the orders waiting", async () => {
+    const { calls } = mockShippo({ "GET /orders/so_1": jsonResponse({ detail: "Token does not exist." }, 401) });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const orders = ["so_1", "so_2"].map((id, i) => pendingOrder({ id: `order_${i}`, number: `10${i}`, $app: { shippo: { shippo_order_id: id } } }));
+    const put = vi.fn().mockResolvedValue({});
+    const req = createMockRequest({ appId: "shippo", swell: { get: vi.fn().mockResolvedValue({ results: orders, count: 2 }), put } });
+
+    expect(await syncPendingOrders(req, SETTINGS)).toEqual({
+      checked: 0, labeled: 0, errors: 0, remaining: true, stopped: "Shippo 401: Token does not exist.",
+    });
+    // the second order isn't requested, and no order is written
+    expect(calls).toHaveLength(1);
+    expect(put).not.toHaveBeenCalled();
   });
 
   it("stops when the time budget is used up", async () => {

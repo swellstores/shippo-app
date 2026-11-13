@@ -127,6 +127,19 @@ describe("check-labels", () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  it("shows a pass stopped by a refused token as a red popup", async () => {
+    mockShippo({ "GET /orders/so_1": jsonResponse({ detail: "Forbidden." }, 403) });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const req = request(SETTINGS, {
+      get: vi.fn().mockResolvedValue({ results: [makeOrder({ $app: { shippo: { shippo_order_id: "so_1" } } })], count: 1 }),
+      put: vi.fn(),
+    });
+    await expectFailure(
+      checkLabels(req),
+      "Check for labels stopped: Shippo 403: Forbidden. Check the API token in the app settings; the orders still waiting for a label weren't changed.",
+    );
+  });
+
   it("shows a failed Swell read as a red popup with a message", async () => {
     const req = request(SETTINGS, { get: vi.fn().mockRejectedValue(new Error("Service unavailable")) });
     await expectFailure(checkLabels(req), "Check for labels failed: Service unavailable");

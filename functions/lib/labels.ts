@@ -25,6 +25,14 @@ export interface SyncSummary {
   labeled: number;
   errors: number;
   remaining: boolean;
+  // why the pass stopped early: Shippo refused the token (401 or 403), which would fail every other order too
+  stopped?: string;
+}
+
+// Shippo refused the token itself (401) or access (403, not a documented Shippo status): not the order's fault, so
+// the pass stops and the orders keep waiting instead of all being marked as errors
+export function isTokenRefused(err: unknown): err is ShippoError {
+  return err instanceof ShippoError && (err.status === 401 || err.status === 403);
 }
 
 export interface LabelDetails {
@@ -174,8 +182,9 @@ export async function syncOrderLabel(
   try {
     shippoOrder = await getOrder(settings, appData.shippo_order_id);
   } catch (err: any) {
-    // the Shippo order is gone or belongs to another account; stop checking it
-    if (err instanceof ShippoError && [400, 403, 404].includes(err.status)) {
+    // The Shippo order is gone, or was made with another token (Shippo keeps test and live data apart and answers 404
+    // for objects it doesn't have); stop checking it. 401 and 403 are about the token, not the order: they're rethrown.
+    if (err instanceof ShippoError && [400, 404].includes(err.status)) {
       await swell.put(
         `/orders/${order.id}`,
         req.appValues({ shippo_status: STATUS_ERROR, shippo_error: err.message, shippo_checked_at: now }),
@@ -254,6 +263,12 @@ export async function syncPendingOrders(
       if (outcome === 'labeled') summary.labeled++;
       if (outcome === 'error') summary.errors++;
     } catch (err: any) {
+      if (isTokenRefused(err)) {
+        summary.stopped = err.message;
+        summary.remaining = true;
+        console.error(`Shippo: label check stopped at order ${order.number} - ${err.message}`);
+        break;
+      }
       summary.checked++;
       summary.errors++;
       console.error(`Shippo: failed to check order ${order.number} - ${err?.message || err}`);
