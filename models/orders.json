@@ -57,6 +57,9 @@
     },
     "shippo_error": {
       "type": "string"
+    },
+    "shippo_note": {
+      "type": "string"
     }
   }
 }

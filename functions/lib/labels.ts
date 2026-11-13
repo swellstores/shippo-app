@@ -169,9 +169,9 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
       console.log(`Shippo: order ${order.number} was shipped meanwhile; keeps shipment ${copies[0].id}`);
       return copies[0].id;
     }
-    // shipped some other way: the label is saved without a shipment
+    // shipped some other way: the label is saved without a shipment, with a note on the order
     console.warn(`Shippo: Swell refused the shipment for order ${order.number}: ${errorText(shipment.errors)}`);
-    return null;
+    throw new ItemsAlreadyShipped(errorText(shipment.errors));
   }
 
   console.log(`Shippo: created shipment ${shipment.id} for order ${order.number}`);
@@ -185,6 +185,13 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
   }
   return shipment.id;
 }
+
+// Swell refused the shipment because the order had none of these items left to ship, and no shipment has the label's
+// tracking number: they were shipped by another shipment (another app, or by hand)
+export class ItemsAlreadyShipped extends Error {}
+
+export const ITEMS_SHIPPED_NOTE =
+  "Label saved, but Swell had no items left to ship (shipped by another shipment), so no shipment was created for it.";
 
 // Swell's { field: { message } } errors as one line
 function errorText(errors: Record<string, any>): string {
@@ -235,12 +242,18 @@ export async function syncOrderLabel(
     shippo_service: label.servicelevel_name || null,
     shippo_checked_at: now,
     shippo_error: null,
+    shippo_note: null,
   };
 
   if (settings.create_fulfillment !== false && !appData.shippo_shipment_id) {
-    const shipmentId = await createSwellShipment(swell, order, label);
-    if (shipmentId) {
-      values.shippo_shipment_id = shipmentId;
+    try {
+      const shipmentId = await createSwellShipment(swell, order, label);
+      if (shipmentId) {
+        values.shippo_shipment_id = shipmentId;
+      }
+    } catch (err) {
+      if (!(err instanceof ItemsAlreadyShipped)) throw err;
+      values.shippo_note = ITEMS_SHIPPED_NOTE;
     }
   }
 
@@ -342,6 +355,7 @@ export async function applyRefundedLabel(req: SwellRequest, tx: ShippoTransactio
       shippo_tracking_details: null,
       shippo_tracking_date: null,
       shippo_eta: null,
+      shippo_note: null,
     }),
   );
   return true;

@@ -87,6 +87,12 @@
       "label": "Error",
       "type": "long_text",
       "readonly": true
+    },
+    {
+      "id": "shippo_note",
+      "label": "Note",
+      "type": "long_text",
+      "readonly": true
     }
   ],
   "views": [
@@ -148,6 +154,10 @@
             {
               "id": "shippo_checked_at",
               "conditions": { "shippo_status": "awaiting_label" }
+            },
+            {
+              "id": "shippo_note",
+              "conditions": { "shippo_note": { "$exists": true } }
             },
             {
               "id": "shippo_error",

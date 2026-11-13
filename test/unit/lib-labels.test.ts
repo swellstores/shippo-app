@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ITEMS_SHIPPED_NOTE,
+  ItemsAlreadyShipped,
   applyRefundedLabel,
   applyTrackingUpdate,
   createSwellShipment,
@@ -133,11 +135,13 @@ describe("createSwellShipment", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it("returns no shipment when the items were shipped some other way", async () => {
+  it("throws ItemsAlreadyShipped when the items were shipped by another shipment", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const post = vi.fn().mockResolvedValue({ errors: { items: { message: "Not enough items left to ship" } } });
     const get = vi.fn().mockResolvedValue({ results: [] });
-    expect(await createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" })).toBeNull();
+    await expect(
+      createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
+    ).rejects.toBeInstanceOf(ItemsAlreadyShipped);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("items: Not enough items left to ship"));
   });
 
@@ -213,6 +217,24 @@ describe("createSwellShipment", () => {
 });
 
 describe("syncOrderLabel", () => {
+  it("saves the label with a note when another shipment already shipped the items", async () => {
+    mockShippo({
+      "GET /orders/so_1": { object_id: "so_1", transactions: [{ object_id: "tx_1" }] },
+      "GET /transactions/tx_1": SUCCESS_TX,
+      "GET /rates/rate_1": RATE,
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const put = vi.fn().mockResolvedValue({});
+    const post = vi.fn().mockResolvedValue({ errors: { items: { message: "Not enough items left to ship" } } });
+    const get = vi.fn().mockResolvedValue({ results: [] });
+    const req = createMockRequest({ appId: "shippo", swell: { put, post, get } });
+
+    expect(await syncOrderLabel(req, SETTINGS, pendingOrder())).toBe("labeled");
+    const saved = put.mock.calls.at(-1)![1].$app.shippo;
+    expect(saved).toMatchObject({ shippo_status: "label_created", shippo_transaction_id: "tx_1", shippo_note: ITEMS_SHIPPED_NOTE });
+    expect(saved).not.toHaveProperty("shippo_shipment_id");
+  });
+
   it("fulfills the order when a label was bought", async () => {
     mockShippo({
       "GET /orders/so_1": { object_id: "so_1", transactions: [{ object_id: "tx_1" }] },
