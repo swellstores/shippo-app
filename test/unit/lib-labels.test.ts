@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  ITEMS_SHIPPED_NOTE,
   ItemsAlreadyShipped,
+  itemsShippedNote,
   applyRefundedLabel,
   applyTrackingUpdate,
   createSwellShipment,
@@ -21,6 +21,12 @@ afterEach(() => {
 });
 
 const ORDER_ID = "64f0c0ffee0000000000aaaa";
+
+// a write Swell refuses, as the Swell client in functions throws it: a SwellError with status 400 and the errors in body
+function refused(errors: Record<string, any>) {
+  return Object.assign(new Error(`POST /shipments\n${JSON.stringify(errors)}`), { name: "SwellError", status: 400, body: errors });
+}
+const NOT_LEFT = "Cannot ship 2 of item item_1, only 0 left to deliver";
 
 function pendingOrder(overrides: Record<string, any> = {}) {
   return makeOrder({ $app: { shippo: { shippo_order_id: "so_1", shippo_status: "awaiting_label" } }, ...overrides });
@@ -123,7 +129,7 @@ describe("createSwellShipment", () => {
 
   it("uses the parallel run's shipment when Swell refuses the items as already shipped", async () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
-    const post = vi.fn().mockResolvedValue({ errors: { items: { message: "Not enough items left to ship" } } });
+    const post = vi.fn().mockRejectedValue(refused({ items: { message: NOT_LEFT } }));
     const get = vi
       .fn()
       .mockResolvedValueOnce({ results: [] })
@@ -137,20 +143,29 @@ describe("createSwellShipment", () => {
 
   it("throws ItemsAlreadyShipped when the items were shipped by another shipment", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const post = vi.fn().mockResolvedValue({ errors: { items: { message: "Not enough items left to ship" } } });
+    const post = vi.fn().mockRejectedValue(refused({ items: { message: NOT_LEFT } }));
     const get = vi.fn().mockResolvedValue({ results: [] });
     await expect(
       createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
     ).rejects.toBeInstanceOf(ItemsAlreadyShipped);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("items: Not enough items left to ship"));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(NOT_LEFT));
   });
 
   it("throws when the order's shipments are locked by another write, so the order is checked again", async () => {
-    const post = vi.fn().mockResolvedValue({ errors: { order_id: { message: "Order shipments are being updated, please try again" } } });
+    const post = vi.fn().mockRejectedValue(refused({ order_id: { message: "Order shipments are being updated, please try again" } }));
     const get = vi.fn().mockResolvedValue({ results: [] });
     await expect(
       createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
     ).rejects.toThrow("order_id: Order shipments are being updated, please try again");
+  });
+
+  it("rethrows other validation errors instead of taking them for items shipped elsewhere", async () => {
+    const error = refused({ "items.product_id": { message: "Required" } });
+    const post = vi.fn().mockRejectedValue(error);
+    const get = vi.fn().mockResolvedValue({ results: [] });
+    await expect(
+      createSwellShipment({ post, get } as any, makeOrder(), { transaction_id: "tx_1", tracking_number: "9400111" }),
+    ).rejects.toBe(error);
   });
 
   it("reuses the shipment a parallel run already created for the label", async () => {
@@ -225,13 +240,13 @@ describe("syncOrderLabel", () => {
     });
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const put = vi.fn().mockResolvedValue({});
-    const post = vi.fn().mockResolvedValue({ errors: { items: { message: "Not enough items left to ship" } } });
+    const post = vi.fn().mockRejectedValue(refused({ items: { message: NOT_LEFT } }));
     const get = vi.fn().mockResolvedValue({ results: [] });
     const req = createMockRequest({ appId: "shippo", swell: { put, post, get } });
 
     expect(await syncOrderLabel(req, SETTINGS, pendingOrder())).toBe("labeled");
     const saved = put.mock.calls.at(-1)![1].$app.shippo;
-    expect(saved).toMatchObject({ shippo_status: "shipped_elsewhere", shippo_transaction_id: "tx_1", shippo_note: ITEMS_SHIPPED_NOTE });
+    expect(saved).toMatchObject({ shippo_status: "shipped_elsewhere", shippo_transaction_id: "tx_1", shippo_note: itemsShippedNote(NOT_LEFT) });
     expect(saved).not.toHaveProperty("shippo_shipment_id");
   });
 

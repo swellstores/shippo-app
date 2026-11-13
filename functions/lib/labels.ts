@@ -131,47 +131,51 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
   }
 
   const shipping = order.shipping || {};
-  const shipment = await swell.post('/shipments', {
-    order_id: order.id,
-    items,
-    destination: {
-      name: shipping.name,
-      first_name: shipping.first_name,
-      last_name: shipping.last_name,
-      address1: shipping.address1,
-      address2: shipping.address2,
-      city: shipping.city,
-      state: shipping.state,
-      zip: shipping.zip,
-      country: shipping.country,
-      phone: shipping.phone,
-    },
-    carrier: carrierId(label.provider),
-    carrier_name: label.provider,
-    // the dashboard shows `service` in the shipment dialog, so use the readable name
-    service: label.servicelevel_name || label.servicelevel_token,
-    service_name: label.servicelevel_name,
-    tracking_code: label.tracking_number,
-    notes: `Shippo label ${label.transaction_id}${label.tracking_url ? `: ${label.tracking_url}` : ''}`,
-    // Swell refuses items the order has no longer left to ship, so they can't be shipped twice
-    $validate_items: true,
-  });
-
-  // a refused write returns { errors } instead of throwing
-  if (shipment?.errors) {
+  let shipment: any;
+  try {
+    shipment = await swell.post('/shipments', {
+      order_id: order.id,
+      items,
+      destination: {
+        name: shipping.name,
+        first_name: shipping.first_name,
+        last_name: shipping.last_name,
+        address1: shipping.address1,
+        address2: shipping.address2,
+        city: shipping.city,
+        state: shipping.state,
+        zip: shipping.zip,
+        country: shipping.country,
+        phone: shipping.phone,
+      },
+      carrier: carrierId(label.provider),
+      carrier_name: label.provider,
+      // the dashboard shows `service` in the shipment dialog, so use the readable name
+      service: label.servicelevel_name || label.servicelevel_token,
+      service_name: label.servicelevel_name,
+      tracking_code: label.tracking_number,
+      notes: `Shippo label ${label.transaction_id}${label.tracking_url ? `: ${label.tracking_url}` : ''}`,
+      // Swell refuses items the order has no longer left to ship, so they can't be shipped twice
+      $validate_items: true,
+    });
+  } catch (err) {
+    // The Swell client throws a refused write as a SwellError with the errors in `body`
+    const errors = validationErrors(err);
     // the order's shipments are locked by another write: thrown, so the order is checked again
-    if (shipment.errors.order_id) {
-      throw new Error(`Swell couldn't create the shipment for order ${order.number}: ${errorText(shipment.errors)}`);
+    if (errors?.order_id) {
+      throw new Error(`Swell couldn't create the shipment for order ${order.number}: ${errorText(errors)}`);
     }
+    const refused = errors && itemsRefusal(errors);
+    if (!refused) throw err;
     // the items were shipped meanwhile, e.g. by a parallel run for this label: use its shipment
     const copies = await findShipmentsByTracking(swell, order.id, label.tracking_number);
     if (copies.length) {
       console.log(`Shippo: order ${order.number} was shipped meanwhile; keeps shipment ${copies[0].id}`);
       return copies[0].id;
     }
-    // shipped some other way: the label is saved without a shipment, with a note on the order
-    console.warn(`Shippo: Swell refused the shipment for order ${order.number}: ${errorText(shipment.errors)}`);
-    throw new ItemsAlreadyShipped(errorText(shipment.errors));
+    // shipped, fully or partly, by another shipment: only full shipments are made, so the label is saved without one
+    console.warn(`Shippo: Swell refused the shipment for order ${order.number}: ${refused}`);
+    throw new ItemsAlreadyShipped(refused);
   }
 
   console.log(`Shippo: created shipment ${shipment.id} for order ${order.number}`);
@@ -186,12 +190,25 @@ export async function createSwellShipment(swell: SwellAPI, order: any, label: La
   return shipment.id;
 }
 
-// Swell refused the shipment because the order had none of these items left to ship, and no shipment has the label's
-// tracking number: they were shipped by another shipment (another app, or by hand)
+// Swell refused the shipment's items as already shipped by another shipment (another app, or by hand); the message is
+// Swell's reason, e.g. "Cannot ship 2 of item <id>, only 1 left to deliver"
 export class ItemsAlreadyShipped extends Error {}
 
-export const ITEMS_SHIPPED_NOTE =
-  "Label saved, but Swell had no items left to ship (shipped by another shipment), so no shipment was created for it.";
+export function itemsShippedNote(reason: string): string {
+  return `Label saved, but no shipment was created: the order's items were already shipped by another shipment (${reason}).`;
+}
+
+// the { field: { message } } errors of a write Swell refused (the SwellError's body)
+function validationErrors(err: any): Record<string, any> | undefined {
+  const errors = err?.status === 400 ? err.body : undefined;
+  return errors && typeof errors === 'object' ? errors : undefined;
+}
+
+// Swell's reason when it refused the items as no longer left to ship (validateShipmentItems with $validate_items)
+function itemsRefusal(errors: Record<string, any>): string | undefined {
+  const message = errors.items?.message;
+  return typeof message === 'string' && /^Cannot ship /.test(message) ? message : undefined;
+}
 
 // Swell's { field: { message } } errors as one line
 function errorText(errors: Record<string, any>): string {
@@ -254,7 +271,7 @@ export async function syncOrderLabel(
     } catch (err) {
       if (!(err instanceof ItemsAlreadyShipped)) throw err;
       values.shippo_status = STATUS_SHIPPED_ELSEWHERE;
-      values.shippo_note = ITEMS_SHIPPED_NOTE;
+      values.shippo_note = itemsShippedNote(err.message);
     }
   }
 
