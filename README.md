@@ -147,7 +147,7 @@ Data stored on each order under `$app.shippo` (`models/orders.json`): `shippo_or
 
 ## Development
 
-Source: [swellstores/shippo-app](https://github.com/swellstores/shippo-app) (MIT, see `LICENSE`). Needs the [Swell CLI](https://developers.swell.is/cli) (`swell login`) and Node 20+.
+Source: [swellstores/shippo-app](https://github.com/swellstores/shippo-app) (Swell App License, see `LICENSE`). Needs the [Swell CLI](https://developers.swell.is/cli) (`swell login`) and Node 20+.
 
 ```bash
 git clone https://github.com/swellstores/shippo-app && cd shippo-app
