@@ -13,8 +13,8 @@ import {
 
 // orders older than this are no longer checked for labels
 export const MAX_ORDER_AGE_DAYS = 60;
-// orders checked per pass; each takes 2-3 Shippo requests
-export const DEFAULT_BATCH_SIZE = 10;
+// orders checked per pass; each takes 2-3 Shippo requests, and DEFAULT_BUDGET_MS ends a slow pass sooner
+export const DEFAULT_BATCH_SIZE = 20;
 // stop starting new orders after this, to stay inside the 10s function limit
 export const DEFAULT_BUDGET_MS = 6000;
 // transactions fetched per Shippo order

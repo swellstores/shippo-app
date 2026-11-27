@@ -132,7 +132,7 @@ describe("handleEvent", () => {
 
     await handleEvent(req, SETTINGS, "transaction_created", { object_id: "tx_2" });
 
-    expect(get).toHaveBeenCalledWith("/orders", expect.objectContaining({ limit: 10 }));
+    expect(get).toHaveBeenCalledWith("/orders", expect.objectContaining({ limit: 20 }));
     expect(log).toHaveBeenCalledWith("Shippo: label check after transaction_created", {
       checked: 0,
       labeled: 0,
