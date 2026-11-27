@@ -1,5 +1,6 @@
 {
 	"description": "Live Shippo rates at checkout, plus labels and tracking back to Swell",
+	"repository_url": "https://github.com/swellstores/shippo-app",
 	"id": "shippo",
 	"name": "Shippo",
 	"type": "integration",

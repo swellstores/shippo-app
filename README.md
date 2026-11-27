@@ -147,7 +147,7 @@ Data stored on each order under `$app.shippo` (`models/orders.json`): `shippo_or
 
 ## Development
 
-Source: [swellstores/shippo-app](https://github.com/swellstores/shippo-app) (Swell App License, see `LICENSE`). Needs the [Swell CLI](https://developers.swell.is/cli) (`swell login`) and Node 20+.
+Source: [swellstores/shippo-app](https://github.com/swellstores/shippo-app) (MIT, see `LICENSE`). Needs the [Swell CLI](https://developers.swell.is/cli) (`swell login`) and Node 20+.
 
 ```bash
 git clone https://github.com/swellstores/shippo-app && cd shippo-app
@@ -169,3 +169,7 @@ swell logs --type function -s Shippo
 - **Webhook URL:** the webhook only responds after `swell app push`; under `swell app dev` it isn't reachable publicly. Without a public key in the URL, the store host answers 404 (`Function app.shippo.shippo-webhook not found`).
 
 Listing assets: `assets/icon.png` is the Shippo hippo mark (512×512, Shippo ink `#0e242d` on white), taken from the vector logo on goshippo.com. `images` in `swell.json` points at four 3200×1800 App Store images in `assets/screenshots/`: `1-settings.png` (API token and ship-from address), `2-shipping.png` (turning on Shippo in Settings → Shipping), `3-orders.png` (the Shippo status column in the order list) and `4-order.png` (the Shippo tab of a labeled order).
+
+## License
+
+MIT. See [LICENSE](LICENSE). Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
