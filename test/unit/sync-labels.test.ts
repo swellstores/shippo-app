@@ -19,8 +19,8 @@ function request(settings: Record<string, any>, orders: any[] = []) {
 }
 
 describe("sync-labels", () => {
-  it("runs every 15 minutes", () => {
-    expect(config.cron?.schedule).toBe("*/15 * * * *");
+  it("runs every 30 minutes", () => {
+    expect(config.cron?.schedule).toBe("*/30 * * * *");
   });
 
   it("checks orders awaiting a label and logs the summary", async () => {

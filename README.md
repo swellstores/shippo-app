@@ -7,7 +7,7 @@ Connects a Swell store to [Shippo](https://goshippo.com). Customers see live Shi
 - **Live rates at checkout:** a Swell shipping extension. When a cart's shipping address or items change, the app asks Shippo for rates (`POST /shipments`, synchronous) from your ship-from address to the customer's, for one parcel. Every Shippo service level becomes a checkout option, named like `USPS Priority Mail`, with estimated delivery days. You can limit carrier accounts and service levels, and add a markup and a handling fee. Other shipping services (Swell's own, or other apps') stay as they are.
 - **Orders to Shippo:** when an order is paid (or submitted, see settings) and has items to ship, it's created in Shippo (`POST /orders`). The Shippo order has the shipping address, ship-from address, line items with SKU, prices and weights, totals, and the service the customer chose at checkout. An order is sent only once.
 - **Send to Shippo button:** an order's page has a **Send to Shippo** action. Use it for orders placed before the app was installed, or to retry an order whose Shippo status is **Error**: it's sent again as a new Shippo order, for example when its old Shippo order belongs to another token. Orders waiting for a label or already labeled are never sent twice.
-- **Fulfillment from labels:** every 15 minutes the app checks the Shippo orders that don't have a label yet. When it finds a purchased label, it creates a Swell shipment for everything still to ship, with the carrier, service and tracking number. The **Check for labels now** action in the app settings runs the check right away.
+- **Fulfillment from labels:** every 30 minutes the app checks the Shippo orders that don't have a label yet. When it finds a purchased label, it creates a Swell shipment for everything still to ship, with the carrier, service and tracking number. The **Check for labels now** action in the app settings runs the check right away.
 - **Webhook (optional):** with the Shippo webhook set up, a new label triggers the check right away. Carrier tracking updates (in transit, delivered and so on) are saved on the order. A refunded (voided) label cancels its Swell shipment, and the order waits for a new label.
 - **Order tab:** a **Shippo** tab on the order page shows the status, Shippo order ID, carrier, service, tracking number, tracking page, label link, tracking status and details, estimated delivery, the last check, a note (for example when the label's items were already shipped by another shipment) and the last error. The orders list gets a **Shippo** status column.
 - **Test connection:** the action in the app settings checks the API token and lists your active Shippo carriers. It also flags a missing ship-from address.
@@ -56,11 +56,11 @@ All credentials and options are app settings (`settings/shippo.json`). Nothing i
 5. *(Optional, recommended)* Set up the Shippo webhook as described in [Webhook setup](#webhook-setup).
 6. Add an item to a cart and enter a shipping address. Shippo rates should show at checkout.
 7. Place and pay a test order. It should appear on Shippo's **Orders** page, and its Shippo tab in Swell should say **Awaiting label**.
-8. Buy a label for it in Shippo. Within 15 minutes (right away with the webhook, or after **Check for labels now**), the order gets a shipment with the tracking number.
+8. Buy a label for it in Shippo. Within 30 minutes (right away with the webhook, or after **Check for labels now**), the order gets a shipment with the tracking number.
 
 ## Webhook setup
 
-The webhook is optional. Without it, the app finds new labels with its check every 15 minutes, but voided labels and carrier tracking updates never reach Swell. With it, Shippo tells the app about each of these as it happens.
+The webhook is optional. Without it, the app finds new labels with its check every 30 minutes, but voided labels and carrier tracking updates never reach Swell. With it, Shippo tells the app about each of these as it happens.
 
 **What it handles**
 
@@ -110,7 +110,7 @@ Shippo doesn't sign webhooks, and the app doesn't need a secret: it never trusts
 |---|---|---|
 | `functions/shipping-rates.ts` | `after:order.shipping`, extension `shippo` | Gets Shippo rates and adds them to `shipment_rating.services`. |
 | `functions/shippo-order-events.ts` | `order.submitted`, `order.paid` | Sends the order to Shippo on the event chosen in settings. |
-| `functions/sync-labels.ts` | Cron, every 15 minutes | Checks orders awaiting a label and fulfills those with one. |
+| `functions/sync-labels.ts` | Cron, every 30 minutes | Checks orders awaiting a label and fulfills those with one. |
 | `functions/shippo-webhook.ts` | Public route, `POST` | Receives Shippo webhooks: runs the label check, handles refunded labels and saves tracking. |
 | `functions/test-connection.ts` | Settings action | Checks the token and lists carriers. |
 | `functions/check-labels.ts` | Settings action | Runs the label check now. |
@@ -136,7 +136,7 @@ Data stored on each order under `$app.shippo` (`models/orders.json`): `shippo_or
 - **Labels are bought in Shippo:** the app doesn't buy labels. The rate the customer picked at checkout isn't reserved; buy the label on Shippo's Orders page.
 - **Shippo orders can't be changed or canceled through the API:** a canceled Swell order stays on Shippo's Orders page, and edits made in Swell after sending aren't synced. The app stops checking canceled orders for labels.
 - **One parcel, one label per order:** rates use one box with the default dimensions. Only the first purchased label of a Shippo order is used to fulfill the Swell order; later labels are ignored.
-- **Label check window:** orders older than 60 days aren't checked anymore. Without the webhook, a label can take up to 15 minutes to reach Swell, and with many pending orders a pass checks only 10.
+- **Label check window:** orders older than 60 days aren't checked anymore. Without the webhook, a label can take up to 30 minutes to reach Swell, and with many pending orders a pass checks only 10.
 - **Refunded labels and tracking status need the webhook:** without it, voided labels don't cancel the Swell shipment, and the tracking status isn't updated.
 - **Currencies:** a rate is shown only if Shippo quoted it in the cart currency (the sender's or the recipient's currency). Otherwise it's skipped, and a warning is logged.
 - **Checkout speed:** Shippo has 8 seconds to return rates. If it fails or takes longer, checkout shows only the other services, and the error is logged.

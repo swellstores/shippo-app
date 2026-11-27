@@ -4,7 +4,7 @@ import { getShippoSettings, hasToken } from './lib/shippo';
 export const config: SwellConfig = {
   description: 'Fulfill orders from Shippo labels',
   cron: {
-    schedule: '*/15 * * * *',
+    schedule: '*/30 * * * *',
   },
 };
 
